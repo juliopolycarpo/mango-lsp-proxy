@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "exactOptionalPropertyTypes": true,
+    "types": ["bun"],
+    "paths": {
+      "@mango-lsp/cli": ["./apps/cli/src/main.ts"],
+      "@mango-lsp/core": ["./packages/core/src/index.ts"],
+      "@mango-lsp/lsp-client": ["./packages/lsp-client/src/index.ts"],
+      "@mango-lsp/lsp-server": ["./packages/lsp-server/src/index.ts"],
+      "@mango-lsp/protocol": ["./packages/protocol/src/index.ts"],
+      "@mango-lsp/config": ["./packages/config/src/index.ts"],
+      "@mango-lsp/logger": ["./packages/logger/src/index.ts"],
+      "@mango-lsp/shared": ["./packages/shared/src/index.ts"]
+    }
+  },
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+  "exclude": ["node_modules", "dist", "build", "coverage", ".mango-lsp"]
+}

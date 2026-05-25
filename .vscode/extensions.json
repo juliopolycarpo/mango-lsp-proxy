@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "biomejs.biome",
+    "dprint.dprint",
+    "editorconfig.editorconfig",
+    "tamasfe.even-better-toml",
+    "oven.bun-vscode"
+  ],
+  "unwantedRecommendations": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode"]
+}

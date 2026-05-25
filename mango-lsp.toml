@@ -1,0 +1,57 @@
+# mango-lsp.toml
+#
+# Example project configuration for the mango-lsp proxy.
+# The runtime loader validates this file with Zod after Bun TOML parsing.
+
+[workspace]
+rootMarkers = [".git", "package.json", "tsconfig.json", "biome.json"]
+logDir = ".mango-lsp/logs"
+
+[defaults]
+timeout = 12000
+restartOnCrash = true
+maxRestarts = 3
+
+# --- Child LSP servers -------------------------------------------------------
+
+[servers.biome]
+command = "biome"
+args = ["lsp-proxy"]
+roles = ["diagnostics", "codeActions", "formatting"]
+languages = ["javascript", "typescript", "javascriptreact", "typescriptreact", "json", "css"]
+
+[servers.tsgo]
+command = "tsgo"
+args = ["--lsp", "--stdio"]
+roles = ["navigation", "hover", "references", "symbols", "diagnostics"]
+languages = ["javascript", "typescript", "javascriptreact", "typescriptreact"]
+
+# --- Role-based routing ------------------------------------------------------
+
+[routes.navigation]
+strategy = "firstSuccessful"
+servers = ["tsgo"]
+
+[routes.hover]
+strategy = "firstSuccessful"
+servers = ["tsgo"]
+
+[routes.references]
+strategy = "firstSuccessful"
+servers = ["tsgo"]
+
+[routes.symbols]
+strategy = "firstSuccessful"
+servers = ["tsgo"]
+
+[routes.diagnostics]
+strategy = "aggregate"
+servers = ["tsgo", "biome"]
+
+[routes.codeActions]
+strategy = "merge"
+servers = ["biome", "tsgo"]
+
+[routes.formatting]
+strategy = "preferred"
+servers = ["biome"]

@@ -1,0 +1,15 @@
+{
+  "name": "@mango-lsp/lsp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@mango-lsp/core": "workspace:*",
+    "@mango-lsp/protocol": "workspace:*",
+    "@mango-lsp/shared": "workspace:*"
+  }
+}

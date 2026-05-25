@@ -1,0 +1,18 @@
+{
+  "name": "@mango-lsp/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.ts",
+  "bin": {
+    "mango-lsp": "./src/main.ts"
+  },
+  "dependencies": {
+    "@mango-lsp/config": "workspace:*",
+    "@mango-lsp/core": "workspace:*",
+    "@mango-lsp/logger": "workspace:*",
+    "@mango-lsp/lsp-server": "workspace:*",
+    "@mango-lsp/protocol": "workspace:*",
+    "@mango-lsp/shared": "workspace:*"
+  }
+}
