@@ -9,7 +9,9 @@ export type NativeTargetId =
   | "linux-x64"
   | "linux-arm64"
   | "linux-x64-musl"
-  | "linux-arm64-musl";
+  | "linux-arm64-musl"
+  | "darwin-x64"
+  | "darwin-arm64";
 
 export interface NativeTarget {
   readonly id: NativeTargetId;
@@ -19,10 +21,12 @@ export interface NativeTarget {
     | "bun-linux-x64"
     | "bun-linux-arm64"
     | "bun-linux-x64-musl"
-    | "bun-linux-arm64-musl";
+    | "bun-linux-arm64-musl"
+    | "bun-darwin-x64"
+    | "bun-darwin-arm64";
   readonly packageName: string;
-  readonly platform: "win32" | "linux";
-  readonly os: "win32" | "linux";
+  readonly platform: "win32" | "linux" | "darwin";
+  readonly os: "win32" | "linux" | "darwin";
   readonly cpu: "x64" | "arm64";
   readonly libc?: LinuxLibc;
   readonly binaryName: "mango-lsp" | "mango-lsp.exe";

@@ -19,8 +19,19 @@ export interface SmokeNativeOptions {
   readonly targetIds?: readonly NativeTargetId[];
 }
 
+const PE_MAGIC = Buffer.from("MZ");
+const ELF_MAGIC = Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+const MACHO64_MAGIC = Buffer.from([0xcf, 0xfa, 0xed, 0xfe]);
+
 function expectedMagic(target: NativeTarget): Buffer {
-  return target.platform === "win32" ? Buffer.from("MZ") : Buffer.from([0x7f, 0x45, 0x4c, 0x46]);
+  switch (target.platform) {
+    case "win32":
+      return PE_MAGIC;
+    case "darwin":
+      return MACHO64_MAGIC;
+    default:
+      return ELF_MAGIC;
+  }
 }
 
 async function assertBinaryShape(path: string, target: NativeTarget): Promise<void> {
