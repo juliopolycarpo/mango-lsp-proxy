@@ -198,6 +198,8 @@ bun run dev help
 bun test
 bun run check
 bun run fmt
+bun run changelog
+bun run changelog:check
 bun run build
 bun run build:bin
 bun run build:current
@@ -209,6 +211,23 @@ Test files use:
 - `.unit.test.ts` for unit tests,
 - `.integration.test.ts` for integration tests.
 - `.e2e.test.ts` for end-to-end tests.
+
+## Changelog
+
+The canonical changelog is [`CHANGELOG.md`](./CHANGELOG.md). It is generated with
+[`git-cliff`](https://git-cliff.org/) from conventional commits using [`cliff.toml`](./cliff.toml).
+
+Regenerate it after release-facing changes:
+
+```sh
+bun run changelog
+```
+
+Validate the git-cliff config without rewriting the tracked changelog:
+
+```sh
+bun run changelog:check
+```
 
 There is intentionally **no ESLint**, **no Prettier**, and **no Turborepo** in v0.1.
 
@@ -255,10 +274,10 @@ git push origin 0.1-pre
 ```
 
 The release workflow validates the tag, runs checks and tests, builds every native binary target,
-smoke-checks the binaries, uploads binary release assets, uploads SHA-256 checksums, uploads the
-GitHub commit SHA, uploads standalone installer scripts, generates winget manifests, publishes the
-native npm packages, publishes the root npm package, and uses GitHub's built-in source archives for
-source code.
+smoke-checks the binaries, generates structured git-cliff release notes, uploads binary release
+assets, uploads SHA-256 checksums, uploads the GitHub commit SHA, uploads standalone installer
+scripts, generates winget manifests, publishes the native npm packages, publishes the root npm
+package, and uses GitHub's built-in source archives for source code.
 
 GitHub tags may use `0.1` or `0.1-pre` form. The npm package version is normalized to semver, so
 those tags publish as `0.1.0` and `0.1.0-pre`. Prereleases publish to the npm `next` dist-tag;
@@ -297,6 +316,7 @@ Before publishing, run:
 ```sh
 bun run check
 bun test
+bun run changelog
 bun run build
 bun run smoke:bin
 npm pack --dry-run

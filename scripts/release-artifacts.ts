@@ -100,7 +100,7 @@ async function copyInstallerScripts(rootDir: string, outputDir: string): Promise
   return assets;
 }
 
-async function writeReleaseNotes(
+async function writeReleaseAssetNotes(
   outputDir: string,
   displayVersion: string,
   packageVersion: string,
@@ -110,8 +110,8 @@ async function writeReleaseNotes(
 ): Promise<void> {
   const names = assets.map((asset) => `- \`${asset.name}\``).join("\n");
   await writeFile(
-    join(outputDir, "release-notes.md"),
-    `## Release
+    join(outputDir, "release-assets.md"),
+    `## Release Assets
 
 - Version: \`${displayVersion}\`
 - Package version: \`${packageVersion}\`
@@ -167,7 +167,7 @@ export async function writeReleaseArtifacts(options: ReleaseArtifactOptions): Pr
     ...assets,
     wingetAsset,
   ]);
-  await writeReleaseNotes(
+  await writeReleaseAssetNotes(
     outputDir,
     options.displayVersion,
     options.packageVersion,

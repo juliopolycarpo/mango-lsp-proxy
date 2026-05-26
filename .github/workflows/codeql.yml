@@ -8,14 +8,25 @@ on:
       - develop
       - "release/**"
       - "hotfix/**"
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "test/**"
+      - "docs/**"
       - "perf/**"
+      - "refactor/**"
+      - "style/**"
       - "ci/**"
       - "security/**"
       - "dependencies/**"
       - "deps/**"
+      - "claude/**"
+      - "codex/**"
+      - "copilot/**"
   pull_request:
     branches:
       - main
+      - master
       - develop
       - "release/**"
       - "hotfix/**"

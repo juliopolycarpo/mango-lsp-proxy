@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -60,6 +62,13 @@ jobs:
           --package-version "${{ steps.version.outputs.package_version }}"
           --tag "$GITHUB_REF_NAME"
           --sha "$GITHUB_SHA"
+
+      - name: Generate release notes
+        run: >-
+          bun scripts/changelog.ts release-notes
+          --tag "$GITHUB_REF_NAME"
+          --output dist/release/release-notes.md
+          --assets dist/release/release-assets.md
 
       - name: Create GitHub release
         env:

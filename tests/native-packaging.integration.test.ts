@@ -51,6 +51,7 @@ describe("native package publishing metadata", () => {
     expect(pkg.files).toEqual([
       "bin/",
       "install/",
+      "CHANGELOG.md",
       "LICENSE",
       "README.md",
       "scripts/install-native.cjs",

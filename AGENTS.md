@@ -13,6 +13,8 @@ bun run test:integration           # integration tests only
 bun run test:e2e                   # e2e tests only
 bun run check         # typecheck (tsgo) + biome lint + dprint format-check (sequential, stops on first failure)
 bun run fmt           # auto-format with biome + dprint
+bun run changelog     # regenerate CHANGELOG.md from conventional commits
+bun run changelog:check # validate git-cliff changelog generation
 bun run typecheck     # tsgo --noEmit only
 bun run lint          # biome check only
 bun run build         # compile all native binary package targets

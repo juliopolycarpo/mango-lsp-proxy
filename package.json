@@ -12,6 +12,7 @@
   "files": [
     "bin/",
     "install/",
+    "CHANGELOG.md",
     "LICENSE",
     "README.md",
     "scripts/install-native.cjs",
@@ -29,6 +30,9 @@
     "fmt": "bun scripts/fmt.ts",
     "format": "bun scripts/fmt.ts",
     "format:check": "bunx --bun @biomejs/biome check . && bunx dprint check",
+    "changelog": "bun scripts/changelog.ts write",
+    "changelog:check": "bun scripts/changelog.ts check",
+    "release:notes": "bun scripts/changelog.ts release-notes",
     "build": "bun scripts/build.ts",
     "build:bin": "bun scripts/build.ts",
     "build:current": "bun scripts/build.ts --current",
@@ -64,6 +68,7 @@
     "@types/bun": "^1.3.0",
     "@typescript/native-preview": "^7.0.0-dev.20260525.1",
     "dprint": "^0.54.0",
+    "git-cliff": "^2.13.1",
     "typescript": "^5.6.0"
   }
 }
