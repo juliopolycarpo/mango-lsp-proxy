@@ -127,6 +127,31 @@ describe("publishPackages", () => {
     expect(result.published).toEqual([...NATIVE_NAMES, ROOT_PACKAGE_NAME]);
     expect(log.lines).toContain(`skipped ${NATIVE_NAMES[0]!} (already published at this version)`);
   });
+
+  test("dryRun skips npm publish and logs would-publish output", async () => {
+    const registry = new FakeNpmRegistry();
+    const log = new LogBuffer();
+
+    const result = await publishPackages({
+      npmTag: "latest",
+      dryRun: true,
+      publish: registry.publish,
+      sleep: async () => {},
+      log: log.write,
+    });
+
+    expect(registry.calls).toEqual([]);
+    expect(result.published).toEqual([...NATIVE_NAMES, ROOT_PACKAGE_NAME]);
+    expect(log.lines).toContain("[dry-run] skipping npm publish for all packages");
+    for (const name of NATIVE_NAMES) {
+      const found = log.lines.some((line) => line.includes(`[dry-run] would publish ${name} (`));
+      expect(found).toBe(true);
+    }
+    const rootFound = log.lines.some((line) =>
+      line.includes(`[dry-run] would publish ${ROOT_PACKAGE_NAME} (`),
+    );
+    expect(rootFound).toBe(true);
+  });
 });
 
 describe("isAlreadyPublished", () => {

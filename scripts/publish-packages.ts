@@ -44,6 +44,7 @@ export interface PublishPackagesOptions {
   readonly publish?: (pkg: PublishablePackage) => Promise<PublishStatus>;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly log?: (line: string) => void;
+  readonly dryRun?: boolean;
 }
 
 export interface PublishPackagesResult {
@@ -155,6 +156,14 @@ function logRecovery(
  *
  * Usage: await publishPackages({ npmTag: "latest" })
  */
+async function dryRunPublish(
+  pkg: PublishablePackage,
+  log: (line: string) => void,
+): Promise<PublishStatus> {
+  log(`[dry-run] would publish ${pkg.name} (${pkg.dir})`);
+  return "published";
+}
+
 export async function publishPackages(
   options: PublishPackagesOptions,
 ): Promise<PublishPackagesResult> {
@@ -163,10 +172,18 @@ export async function publishPackages(
     attempts: options.attempts ?? DEFAULT_ATTEMPTS,
     backoffMs: options.backoffMs ?? DEFAULT_BACKOFF_MS,
   };
+  const log = options.log ?? ((line) => process.stdout.write(`${line}\n`));
+
+  if (options.dryRun) {
+    log("[dry-run] skipping npm publish for all packages");
+  }
+
   const deps: PublishDeps = {
-    publish: options.publish ?? ((pkg) => runNpmPublish(pkg, options.npmTag)),
+    publish: options.dryRun
+      ? (pkg) => dryRunPublish(pkg, log)
+      : (options.publish ?? ((pkg) => runNpmPublish(pkg, options.npmTag))),
     sleep: options.sleep ?? sleep,
-    log: options.log ?? ((line) => process.stdout.write(`${line}\n`)),
+    log,
   };
 
   const order = publishOrder(rootDir, options.targetIds);
@@ -204,6 +221,7 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
   let npmTag: string | undefined;
   let attempts: number | undefined;
   let backoffMs: number | undefined;
+  let dryRun = false;
   const targetIds: NativeTargetId[] = [];
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -223,6 +241,9 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
         backoffMs = parsePositiveInt("--backoff-ms", next);
         index += 1;
         break;
+      case "--dry-run":
+        dryRun = true;
+        break;
       case "--target": {
         const target = next === undefined ? undefined : getNativeTarget(next);
         if (target === undefined) throw new Error(`unknown native target: ${next}`);
@@ -236,9 +257,10 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
   }
 
   if (npmTag === undefined)
-    throw new Error("usage: bun scripts/publish-packages.ts --tag <npm-tag>");
+    throw new Error("usage: bun scripts/publish-packages.ts --tag <npm-tag> [--dry-run]");
   return {
     npmTag,
+    dryRun,
     ...(attempts === undefined ? {} : { attempts }),
     ...(backoffMs === undefined ? {} : { backoffMs }),
     ...(targetIds.length === 0 ? {} : { targetIds }),
