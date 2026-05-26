@@ -154,7 +154,7 @@ async function writeReleaseNotes(options: ReleaseNotesOptions): Promise<void> {
   await runDprint(outputPath);
 }
 
-async function run(options: ChangelogOptions): Promise<void> {
+export async function runChangelog(options: ChangelogOptions): Promise<void> {
   if (options.command === "write") return writeChangelog(options.outputPath);
   if (options.command === "check") return checkChangelogConfig();
   return writeReleaseNotes(options);
@@ -162,7 +162,7 @@ async function run(options: ChangelogOptions): Promise<void> {
 
 if (import.meta.main) {
   try {
-    await run(parseChangelogArgs(process.argv.slice(2)));
+    await runChangelog(parseChangelogArgs(process.argv.slice(2)));
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);
