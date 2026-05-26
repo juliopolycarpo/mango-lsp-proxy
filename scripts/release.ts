@@ -22,6 +22,12 @@ export interface ReleaseOptions {
   readonly skipArtifacts?: boolean;
   readonly skipReleaseNotes?: boolean;
   readonly skipPublish?: boolean;
+  /** Optional override for version application, used in tests. */
+  readonly applyVersion?: (
+    version: string,
+    rootDir: string,
+    options: { dryRun: boolean },
+  ) => Promise<void>;
 }
 
 function log(step: string, message: string, dryRun: boolean): void {
@@ -126,7 +132,8 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
   );
 
   log("version", "applying version to package manifests", dryRun);
-  await applyReleaseVersion(version.packageVersion);
+  const applyVersion = options.applyVersion ?? applyReleaseVersion;
+  await applyVersion(version.packageVersion, ROOT_DIR, { dryRun });
 
   if (!options.skipCheck) {
     log("check", "running typecheck, lint, and format checks", dryRun);

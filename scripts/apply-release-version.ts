@@ -53,6 +53,11 @@ async function updateSharedVersion(rootDir: string, version: string): Promise<vo
   await writeFile(path, updated);
 }
 
+export interface ApplyVersionOptions {
+  readonly dryRun?: boolean;
+  readonly log?: (message: string) => void;
+}
+
 /** Apply a release version across package manifests and runtime output.
  *
  * Example: await applyReleaseVersion("0.1.0-pre")
@@ -60,7 +65,17 @@ async function updateSharedVersion(rootDir: string, version: string): Promise<vo
 export async function applyReleaseVersion(
   version: string,
   rootDir: string = ROOT_DIR,
+  options: ApplyVersionOptions = {},
 ): Promise<void> {
+  const { dryRun = false, log = (message) => process.stdout.write(`${message}\n`) } = options;
+
+  if (dryRun) {
+    log(
+      `[dry-run] would apply version ${version} to ${PACKAGE_PATHS.length} package manifests and runtime version`,
+    );
+    return;
+  }
+
   await Promise.all(PACKAGE_PATHS.map((path) => updatePackage(join(rootDir, path), version)));
   await updateSharedVersion(rootDir, version);
 }
