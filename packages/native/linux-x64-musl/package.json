@@ -1,0 +1,23 @@
+{
+  "name": "@mango-lsp/mango-lsp-proxy-linux-x64-musl",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Native mango-lsp binary for Linux x64 musl.",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "libc": "musl",
+  "files": [
+    "bin/"
+  ],
+  "scripts": {
+    "prepack": "bun ../../../scripts/build.ts --target linux-x64-musl"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

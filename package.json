@@ -1,13 +1,21 @@
 {
   "name": "mango-lsp-proxy",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "license": "MIT",
   "description": "One LSP proxy for coding agents. Exposes the mango-lsp binary that fronts multiple child LSP servers behind a single external LSP server.",
   "type": "module",
   "packageManager": "bun@1.3.14",
   "bin": {
-    "mango-lsp": "./dist/mango-lsp"
+    "mango-lsp": "./bin/mango-lsp"
+  },
+  "files": [
+    "bin/",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "workspaces": [
     "apps/*",
@@ -20,13 +28,26 @@
     "test": "bun test",
     "test:unit": "bun test '**/*.unit.test.ts'",
     "test:integration": "bun test '**/*.integration.test.ts'",
+    "test:e2e": "bun test '**/*.e2e.test.ts'",
     "typecheck": "bunx tsgo --noEmit",
     "lint": "bunx --bun @biomejs/biome check .",
     "fmt": "bun scripts/fmt.ts",
     "format": "bun scripts/fmt.ts",
     "format:check": "bunx --bun @biomejs/biome check . && bunx dprint check",
-    "build": "bun build apps/cli/src/main.ts --target bun --outfile dist/mango-lsp",
-    "build:bin": "bun build apps/cli/src/main.ts --compile --outfile dist/mango-lsp"
+    "build": "bun scripts/build.ts",
+    "build:bin": "bun scripts/build.ts",
+    "build:current": "bun scripts/build.ts --current",
+    "build:js": "bun build apps/cli/src/main.ts --target bun --outfile dist/mango-lsp",
+    "smoke:bin": "bun scripts/smoke-native.ts",
+    "prepack": "bun run build"
+  },
+  "optionalDependencies": {
+    "@mango-lsp/mango-lsp-proxy-linux-arm64": "0.1.0",
+    "@mango-lsp/mango-lsp-proxy-linux-arm64-musl": "0.1.0",
+    "@mango-lsp/mango-lsp-proxy-linux-x64": "0.1.0",
+    "@mango-lsp/mango-lsp-proxy-linux-x64-musl": "0.1.0",
+    "@mango-lsp/mango-lsp-proxy-windows-arm64": "0.1.0",
+    "@mango-lsp/mango-lsp-proxy-windows-x64": "0.1.0"
   },
   "dependencies": {
     "zod": "^3.23.8"
