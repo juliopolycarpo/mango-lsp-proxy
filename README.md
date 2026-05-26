@@ -269,18 +269,27 @@ For npm trusted publishing, configure each published package on npmjs.com to tru
 `.github/workflows/release.yml` workflow for this repository. The workflow uses GitHub Actions OIDC
 and `npm publish --provenance`.
 
-NPM publish order:
+`bun scripts/publish-packages.ts --tag <dist-tag>` performs the publish. It publishes every native
+package first and the root package last, so the metapackage never resolves to native versions that
+are not yet live. Each package is retried up to three times with exponential backoff, and a version
+that npm reports as already published is treated as a skip rather than a failure — so re-running the
+release after a partial publish picks up where it left off instead of erroring on the live packages.
+On failure it logs which packages are already live, which one failed, and which were not attempted,
+so manual recovery is straightforward.
+
+Publish order:
 
 ```sh
-npm publish packages/native/windows-x64 --access public
-npm publish packages/native/windows-arm64 --access public
-npm publish packages/native/linux-x64 --access public
-npm publish packages/native/linux-arm64 --access public
-npm publish packages/native/linux-x64-musl --access public
-npm publish packages/native/linux-arm64-musl --access public
-npm publish packages/native/darwin-x64 --access public
-npm publish packages/native/darwin-arm64 --access public
-npm publish --access public
+bun scripts/publish-packages.ts --tag latest
+# 1. @mango-lsp/mango-lsp-proxy-windows-x64
+# 2. @mango-lsp/mango-lsp-proxy-windows-arm64
+# 3. @mango-lsp/mango-lsp-proxy-linux-x64
+# 4. @mango-lsp/mango-lsp-proxy-linux-arm64
+# 5. @mango-lsp/mango-lsp-proxy-linux-x64-musl
+# 6. @mango-lsp/mango-lsp-proxy-linux-arm64-musl
+# 7. @mango-lsp/mango-lsp-proxy-darwin-x64
+# 8. @mango-lsp/mango-lsp-proxy-darwin-arm64
+# 9. mango-lsp-proxy (root, published last)
 ```
 
 Before publishing, run:

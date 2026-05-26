@@ -20,6 +20,7 @@ bun run build:bin     # alias for native binary build
 bun run build:current # compile only the current host native target
 bun run build:js      # bundle to dist/mango-lsp (Bun JS, not compiled)
 bun run smoke:bin     # validate built binary headers and run host binary --version
+bun run publish:npm --tag latest  # publish native packages then root, with retries + recovery
 ```
 
 `bun run check` is the single pre-commit gate — it runs typecheck, biome, and dprint in sequence.

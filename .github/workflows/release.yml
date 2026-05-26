@@ -94,22 +94,4 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Publish packages to npm
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          npm --version
-          publish_tag="${{ steps.version.outputs.npm_tag }}"
-
-          mapfile -t targets < <(bun scripts/build.ts --list)
-          for target in "${targets[@]}"; do
-            npm publish "packages/native/${target}" \
-              --access public \
-              --tag "$publish_tag" \
-              --provenance
-          done
-
-          npm publish \
-            --access public \
-            --tag "$publish_tag" \
-            --provenance
+        run: bun scripts/publish-packages.ts --tag "${{ steps.version.outputs.npm_tag }}"

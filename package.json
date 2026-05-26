@@ -34,6 +34,7 @@
     "build:current": "bun scripts/build.ts --current",
     "build:js": "bun build apps/cli/src/main.ts --target bun --outfile dist/mango-lsp",
     "smoke:bin": "bun scripts/smoke-native.ts",
+    "publish:npm": "bun scripts/publish-packages.ts",
     "postinstall": "node scripts/install-native.cjs || bun scripts/install-native.cjs",
     "prepack": "bun run build:current"
   },
