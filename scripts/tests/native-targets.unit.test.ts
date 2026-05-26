@@ -18,6 +18,8 @@ describe("native binary target matrix", () => {
       "linux-arm64",
       "linux-x64-musl",
       "linux-arm64-musl",
+      "darwin-x64",
+      "darwin-arm64",
     ]);
     expect(NATIVE_TARGETS.map((target) => target.bunTarget)).toEqual([
       "bun-windows-x64",
@@ -26,6 +28,8 @@ describe("native binary target matrix", () => {
       "bun-linux-arm64",
       "bun-linux-x64-musl",
       "bun-linux-arm64-musl",
+      "bun-darwin-x64",
+      "bun-darwin-arm64",
     ]);
     expect(new Set(NATIVE_TARGETS.map((target) => target.packageName)).size).toBe(
       NATIVE_TARGETS.length,
@@ -70,6 +74,7 @@ describe("native binary target matrix", () => {
     expect(detectHostNativeTarget("linux", "arm64", "glibc")?.id).toBe("linux-arm64");
     expect(detectHostNativeTarget("linux", "x64", "musl")?.id).toBe("linux-x64-musl");
     expect(detectHostNativeTarget("linux", "arm64", "musl")?.id).toBe("linux-arm64-musl");
-    expect(detectHostNativeTarget("darwin", "arm64")).toBeUndefined();
+    expect(detectHostNativeTarget("darwin", "x64")?.id).toBe("darwin-x64");
+    expect(detectHostNativeTarget("darwin", "arm64")?.id).toBe("darwin-arm64");
   });
 });
