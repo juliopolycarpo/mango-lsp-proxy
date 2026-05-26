@@ -38,10 +38,28 @@ mango-lsp serve-lsp --stdio
 
 - Install as `mango-lsp-proxy`.
 - Run as `mango-lsp`.
-- The published package installs a small launcher plus the matching native binary package for the
-  user's OS/CPU/libc.
+- The published package installs the matching native binary for the user's OS/CPU/libc.
+- Node or Bun can be used as the installer, but the installed `mango-lsp` command is a native
+  executable and does not need a JavaScript runtime to run.
 - Project config file is `mango-lsp.toml`.
 - Local state and logs live under `.mango-lsp/`.
+
+Installer script options are available for users who do not want npm or Bun:
+
+```sh
+curl -fsSL https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.sh | sh
+```
+
+```powershell
+iwr https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.ps1 -UseBasicParsing | iex
+```
+
+Windows users will be able to install through `winget` after the generated winget manifests are
+accepted into the community package repository:
+
+```powershell
+winget install JulioPolycarpo.MangoLSP
+```
 
 ## CLI
 
@@ -192,8 +210,9 @@ There is intentionally **no ESLint**, **no Prettier**, and **no Turborepo** in v
 ## Native Releases
 
 `mango-lsp-proxy` publishes one root package and one optional native package per supported target.
-The root package owns the `mango-lsp` bin launcher. The optional packages carry the compiled
-standalone binaries:
+The root package owns the `mango-lsp` bin path. During package installation, its postinstall step
+copies the correct optional native package into that path, so package-manager installs still produce
+a standalone executable:
 
 ```text
 @mango-lsp/mango-lsp-proxy-windows-x64
@@ -217,7 +236,33 @@ Build only the current host binary:
 bun run build:current
 ```
 
-Publish order:
+GitHub binary releases are created by pushing a version tag. Tags without a prerelease suffix create
+official releases; tags with a hyphenated suffix create GitHub prereleases.
+
+```sh
+git tag -s 0.1 -m "Release 0.1"
+git push origin 0.1
+
+git tag -s 0.1-pre -m "Release 0.1-pre"
+git push origin 0.1-pre
+```
+
+The release workflow validates the tag, runs checks and tests, builds every native binary target,
+smoke-checks the binaries, uploads binary release assets, uploads SHA-256 checksums, uploads the
+GitHub commit SHA, uploads standalone installer scripts, generates winget manifests, publishes the
+native npm packages, publishes the root npm package, and uses GitHub's built-in source archives for
+source code.
+
+GitHub tags may use `0.1` or `0.1-pre` form. The npm package version is normalized to semver, so
+those tags publish as `0.1.0` and `0.1.0-pre`. Prereleases publish to the npm `next` dist-tag;
+official releases publish to `latest`. Bun installs from the npm registry, so the same publish step
+supports both `npm install -g mango-lsp-proxy` and `bun install -g mango-lsp-proxy`.
+
+For npm trusted publishing, configure each published package on npmjs.com to trust the
+`.github/workflows/release.yml` workflow for this repository. The workflow uses GitHub Actions OIDC
+and `npm publish --provenance`.
+
+NPM publish order:
 
 ```sh
 npm publish packages/native/windows-x64 --access public

@@ -6,6 +6,8 @@ dist/
 build/
 coverage/
 packages/native/*/bin/
+bin/mango-lsp.exe
+*.tgz
 
 # Caches
 .cache/

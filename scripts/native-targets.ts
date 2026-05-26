@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import targetData from "./native-target-data.json";
 
 export type LinuxLibc = "glibc" | "musl";
 
@@ -28,72 +29,7 @@ export interface NativeTarget {
   readonly description: string;
 }
 
-export const NATIVE_TARGETS = [
-  {
-    id: "windows-x64",
-    bunTarget: "bun-windows-x64",
-    packageName: "@mango-lsp/mango-lsp-proxy-windows-x64",
-    platform: "win32",
-    os: "win32",
-    cpu: "x64",
-    binaryName: "mango-lsp.exe",
-    description: "Windows x64",
-  },
-  {
-    id: "windows-arm64",
-    bunTarget: "bun-windows-arm64",
-    packageName: "@mango-lsp/mango-lsp-proxy-windows-arm64",
-    platform: "win32",
-    os: "win32",
-    cpu: "arm64",
-    binaryName: "mango-lsp.exe",
-    description: "Windows ARM64",
-  },
-  {
-    id: "linux-x64",
-    bunTarget: "bun-linux-x64",
-    packageName: "@mango-lsp/mango-lsp-proxy-linux-x64",
-    platform: "linux",
-    os: "linux",
-    cpu: "x64",
-    libc: "glibc",
-    binaryName: "mango-lsp",
-    description: "Linux x64 glibc",
-  },
-  {
-    id: "linux-arm64",
-    bunTarget: "bun-linux-arm64",
-    packageName: "@mango-lsp/mango-lsp-proxy-linux-arm64",
-    platform: "linux",
-    os: "linux",
-    cpu: "arm64",
-    libc: "glibc",
-    binaryName: "mango-lsp",
-    description: "Linux ARM64 glibc",
-  },
-  {
-    id: "linux-x64-musl",
-    bunTarget: "bun-linux-x64-musl",
-    packageName: "@mango-lsp/mango-lsp-proxy-linux-x64-musl",
-    platform: "linux",
-    os: "linux",
-    cpu: "x64",
-    libc: "musl",
-    binaryName: "mango-lsp",
-    description: "Linux x64 musl",
-  },
-  {
-    id: "linux-arm64-musl",
-    bunTarget: "bun-linux-arm64-musl",
-    packageName: "@mango-lsp/mango-lsp-proxy-linux-arm64-musl",
-    platform: "linux",
-    os: "linux",
-    cpu: "arm64",
-    libc: "musl",
-    binaryName: "mango-lsp",
-    description: "Linux ARM64 musl",
-  },
-] as const satisfies readonly NativeTarget[];
+export const NATIVE_TARGETS = targetData as readonly NativeTarget[];
 
 export function nativeTargetIds(): NativeTargetId[] {
   return NATIVE_TARGETS.map((target) => target.id);

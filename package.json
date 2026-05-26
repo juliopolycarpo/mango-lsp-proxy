@@ -11,16 +11,11 @@
   },
   "files": [
     "bin/",
+    "install/",
     "LICENSE",
-    "README.md"
-  ],
-  "publishConfig": {
-    "access": "public"
-  },
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "packages/*/*"
+    "README.md",
+    "scripts/install-native.cjs",
+    "scripts/native-target-data.json"
   ],
   "scripts": {
     "dev": "bun apps/cli/src/main.ts",
@@ -39,8 +34,17 @@
     "build:current": "bun scripts/build.ts --current",
     "build:js": "bun build apps/cli/src/main.ts --target bun --outfile dist/mango-lsp",
     "smoke:bin": "bun scripts/smoke-native.ts",
-    "prepack": "bun run build"
+    "postinstall": "node scripts/install-native.cjs || bun scripts/install-native.cjs",
+    "prepack": "bun run build:current"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "packages/*/*"
+  ],
   "optionalDependencies": {
     "@mango-lsp/mango-lsp-proxy-linux-arm64": "0.1.0",
     "@mango-lsp/mango-lsp-proxy-linux-arm64-musl": "0.1.0",
