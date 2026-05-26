@@ -30,7 +30,7 @@ interface PackageJson {
 
 interface NativeInstaller {
   hostTarget(): NativeTarget | undefined;
-  installNative(rootDir: string): string;
+  installNative(rootDir: string): string | undefined;
 }
 
 async function readPackageJson(path: string): Promise<PackageJson> {
@@ -115,6 +115,8 @@ describe("native package publishing metadata", () => {
     await chmod(fakeBinary, 0o755);
 
     const commandPath = installer.installNative(rootDir);
+    if (commandPath === undefined)
+      throw new Error("installNative should succeed when binary exists");
     expect(commandPath).toBe(join(rootDir, "bin", "mango-lsp"));
     expect(await readFile(commandPath, "utf8")).toBe(await readFile(fakeBinary, "utf8"));
 

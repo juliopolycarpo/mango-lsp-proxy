@@ -50,26 +50,33 @@ function copyNativeBinary(rootDir, target, sourcePath) {
 
 function installNative(rootDir = resolve(__dirname, "..")) {
   const target = hostTarget();
-  if (target === undefined)
-    throw new Error(`unsupported platform ${process.platform}/${process.arch}`);
+  if (target === undefined) return undefined;
 
   const sourcePath = nativeBinaryPath(rootDir, target);
-  if (!existsSync(sourcePath)) {
-    throw new Error(`native package was not installed for ${target.id}`);
-  }
+  if (!existsSync(sourcePath)) return undefined;
 
   return copyNativeBinary(rootDir, target, sourcePath);
 }
 
 if (require.main === module) {
-  try {
-    const commandPath = installNative();
-    process.stdout.write(`installed mango-lsp native binary to ${commandPath}\n`);
-  } catch (error) {
-    process.stderr.write(`mango-lsp postinstall failed: ${error.message}\n`);
-    process.stderr.write("Reinstall without omitting optional dependencies.\n");
-    process.exit(1);
+  const target = hostTarget();
+  if (target === undefined) {
+    process.stdout.write(`mango-lsp: unsupported platform ${process.platform}/${process.arch}\n`);
+    process.exit(0);
   }
+
+  const commandPath = installNative();
+  if (commandPath === undefined) {
+    process.stdout.write(
+      `mango-lsp: native binary not available for ${target.id}; skipping postinstall.\n`,
+    );
+    process.stdout.write(
+      "Run `bun run build:current` to build the native binary for this platform.\n",
+    );
+    process.exit(0);
+  }
+
+  process.stdout.write(`installed mango-lsp native binary to ${commandPath}\n`);
 }
 
 module.exports = { hostTarget, installNative };
