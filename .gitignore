@@ -22,6 +22,11 @@ bin/mango-lsp.exe
 .mango-lsp/state/
 mango-lsp.local.toml
 
+# Agent Local State
+.claude/
+.codex/
+.agents/
+
 # Environment files (keep .env.example tracked)
 .env
 .env.*
