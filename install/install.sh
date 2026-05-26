@@ -69,10 +69,14 @@ target_libc() {
   printf "glibc"
 }
 
-if [ "$(uname -s)" != "Linux" ]; then
-  echo "install.sh supports Linux. Use install.ps1 on Windows." >&2
-  exit 1
-fi
+case "$(uname -s)" in
+  Linux) os="linux" ;;
+  Darwin) os="darwin" ;;
+  *)
+    echo "install.sh supports Linux and macOS. Use install.ps1 on Windows." >&2
+    exit 1
+    ;;
+esac
 
 if [ -z "$TAG" ]; then
   if [ -z "$VERSION" ]; then
@@ -84,9 +88,9 @@ if [ -z "$TAG" ]; then
 fi
 
 arch="$(target_arch)"
-libc="$(target_libc)"
-target="linux-$arch"
-if [ "$libc" = "musl" ]; then
+target="$os-$arch"
+# macOS ships a single libc; only Linux varies between glibc and musl.
+if [ "$os" = "linux" ] && [ "$(target_libc)" = "musl" ]; then
   target="$target-musl"
 fi
 
