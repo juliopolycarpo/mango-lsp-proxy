@@ -44,7 +44,8 @@ mango-lsp serve-lsp --stdio
 - Project config file is `mango-lsp.toml`.
 - Local state and logs live under `.mango-lsp/`.
 
-Installer script options are available for users who do not want npm or Bun:
+Installer script options are available for users who do not want npm or Bun. `install.sh` covers
+Linux and macOS; `install.ps1` covers Windows:
 
 ```sh
 curl -fsSL https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.sh | sh
@@ -53,6 +54,10 @@ curl -fsSL https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/dow
 ```powershell
 iwr https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.ps1 -UseBasicParsing | iex
 ```
+
+macOS binaries are not Apple-notarized. Package-manager and `install.sh` installs are not
+quarantined, but a binary downloaded manually through a browser must be cleared with
+`xattr -d com.apple.quarantine ./mango-lsp` before first run.
 
 Windows users will be able to install through `winget` after the generated winget manifests are
 accepted into the community package repository:
@@ -221,6 +226,8 @@ a standalone executable:
 @mango-lsp/mango-lsp-proxy-linux-arm64
 @mango-lsp/mango-lsp-proxy-linux-x64-musl
 @mango-lsp/mango-lsp-proxy-linux-arm64-musl
+@mango-lsp/mango-lsp-proxy-darwin-x64
+@mango-lsp/mango-lsp-proxy-darwin-arm64
 ```
 
 Build all release binaries:
@@ -271,6 +278,8 @@ npm publish packages/native/linux-x64 --access public
 npm publish packages/native/linux-arm64 --access public
 npm publish packages/native/linux-x64-musl --access public
 npm publish packages/native/linux-arm64-musl --access public
+npm publish packages/native/darwin-x64 --access public
+npm publish packages/native/darwin-arm64 --access public
 npm publish --access public
 ```
 
