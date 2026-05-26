@@ -56,4 +56,31 @@ describe("release version application", () => {
     );
     expect(await Bun.file(sharedPath).text()).toContain('"1.2.3-pre"');
   });
+
+  test("dryRun logs intent without rewriting files", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "mango-release-version-"));
+    await Promise.all(PACKAGE_PATHS.map((path) => writePackage(rootDir, path)));
+
+    const rootPackage = join(rootDir, "package.json");
+    const sharedPath = join(rootDir, "packages", "shared", "src", "index.ts");
+    await mkdir(dirname(sharedPath), { recursive: true });
+    await Bun.write(sharedPath, 'export const MANGO_LSP_VERSION = "0.0.0" as const;\n');
+
+    const logs: string[] = [];
+    await applyReleaseVersion("9.9.9", rootDir, { dryRun: true, log: (msg) => logs.push(msg) });
+
+    // Package files untouched
+    const rootJson = (await Bun.file(rootPackage).json()) as { version: string };
+    expect(rootJson.version).toBe("0.0.0");
+
+    // Shared version untouched
+    expect(await Bun.file(sharedPath).text()).toBe(
+      'export const MANGO_LSP_VERSION = "0.0.0" as const;\n',
+    );
+
+    // Intent was logged
+    expect(logs.length).toBe(1);
+    expect(logs[0]).toContain("9.9.9");
+    expect(logs[0]).toContain("dry-run");
+  });
 });
