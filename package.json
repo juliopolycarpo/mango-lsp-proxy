@@ -40,7 +40,9 @@
     "smoke:bin": "bun scripts/smoke-native.ts",
     "publish:npm": "bun scripts/publish-packages.ts",
     "postinstall": "node scripts/install-native.cjs || bun scripts/install-native.cjs",
-    "prepack": "bun run build:current"
+    "prepack": "bun run build:current",
+    "release": "bun scripts/release.ts",
+    "release:dry-run": "bun scripts/release.ts --dry-run"
   },
   "publishConfig": {
     "access": "public"
