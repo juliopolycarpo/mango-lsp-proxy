@@ -27,7 +27,9 @@ formatting. `mango-lsp` solves that by:
 The package is installed under one name and the binary is run under another:
 
 ```sh
-bun add -g mango-lsp-proxy
+bun install -g mango-lsp-proxy
+# or
+npm i -g mango-lsp-proxy
 
 mango-lsp init
 mango-lsp doctor
@@ -36,6 +38,8 @@ mango-lsp serve-lsp --stdio
 
 - Install as `mango-lsp-proxy`.
 - Run as `mango-lsp`.
+- The published package installs a small launcher plus the matching native binary package for the
+  user's OS/CPU/libc.
 - Project config file is `mango-lsp.toml`.
 - Local state and logs live under `.mango-lsp/`.
 
@@ -173,14 +177,67 @@ bun run check
 bun run fmt
 bun run build
 bun run build:bin
+bun run build:current
+bun run smoke:bin
 ```
 
 Test files use:
 
 - `.unit.test.ts` for unit tests,
 - `.integration.test.ts` for integration tests.
+- `.e2e.test.ts` for end-to-end tests.
 
 There is intentionally **no ESLint**, **no Prettier**, and **no Turborepo** in v0.1.
+
+## Native Releases
+
+`mango-lsp-proxy` publishes one root package and one optional native package per supported target.
+The root package owns the `mango-lsp` bin launcher. The optional packages carry the compiled
+standalone binaries:
+
+```text
+@mango-lsp/mango-lsp-proxy-windows-x64
+@mango-lsp/mango-lsp-proxy-windows-arm64
+@mango-lsp/mango-lsp-proxy-linux-x64
+@mango-lsp/mango-lsp-proxy-linux-arm64
+@mango-lsp/mango-lsp-proxy-linux-x64-musl
+@mango-lsp/mango-lsp-proxy-linux-arm64-musl
+```
+
+Build all release binaries:
+
+```sh
+bun run build
+bun run smoke:bin
+```
+
+Build only the current host binary:
+
+```sh
+bun run build:current
+```
+
+Publish order:
+
+```sh
+npm publish packages/native/windows-x64 --access public
+npm publish packages/native/windows-arm64 --access public
+npm publish packages/native/linux-x64 --access public
+npm publish packages/native/linux-arm64 --access public
+npm publish packages/native/linux-x64-musl --access public
+npm publish packages/native/linux-arm64-musl --access public
+npm publish --access public
+```
+
+Before publishing, run:
+
+```sh
+bun run check
+bun test
+bun run build
+bun run smoke:bin
+npm pack --dry-run
+```
 
 ### Editor Integration
 
