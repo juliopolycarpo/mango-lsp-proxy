@@ -27,12 +27,17 @@ function hostTarget() {
 
 function nativePackageRoot(rootDir, target) {
   const localRequire = createRequire(join(rootDir, "package.json"));
-  const packageJson = localRequire.resolve(`${target.packageName}/package.json`);
-  return dirname(packageJson);
+  try {
+    const packageJson = localRequire.resolve(`${target.packageName}/package.json`);
+    return dirname(packageJson);
+  } catch {
+    return undefined;
+  }
 }
 
 function nativeBinaryPath(rootDir, target) {
   const packageRoot = nativePackageRoot(rootDir, target);
+  if (packageRoot === undefined) return undefined;
   return join(packageRoot, "bin", target.binaryName);
 }
 
@@ -53,7 +58,7 @@ function installNative(rootDir = resolve(__dirname, "..")) {
   if (target === undefined) return undefined;
 
   const sourcePath = nativeBinaryPath(rootDir, target);
-  if (!existsSync(sourcePath)) return undefined;
+  if (sourcePath === undefined || !existsSync(sourcePath)) return undefined;
 
   return copyNativeBinary(rootDir, target, sourcePath);
 }
