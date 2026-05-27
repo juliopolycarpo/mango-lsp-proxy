@@ -48,9 +48,13 @@ function resolveSha(sha: string | undefined): string {
   }
 }
 
-function formatGhCommand(tag: string, displayVersion: string, isPrerelease: boolean): string {
+export function buildGhReleaseArgs(
+  tag: string,
+  displayVersion: string,
+  isPrerelease: boolean,
+  assetPaths: readonly string[],
+): string[] {
   const args = [
-    "gh",
     "release",
     "create",
     tag,
@@ -65,12 +69,50 @@ function formatGhCommand(tag: string, displayVersion: string, isPrerelease: bool
   } else {
     args.push("--latest");
   }
-  args.push(
+  args.push(...assetPaths);
+  return args;
+}
+
+export function formatGhCommand(
+  tag: string,
+  displayVersion: string,
+  isPrerelease: boolean,
+): string {
+  const assetPaths = [
     `${ROOT_DIR}/dist/release/mango-lsp-*`,
     `${ROOT_DIR}/dist/release/install.sh`,
     `${ROOT_DIR}/dist/release/install.ps1`,
-  );
-  return args.join(" ");
+  ];
+  return ["gh", ...buildGhReleaseArgs(tag, displayVersion, isPrerelease, assetPaths)].join(" ");
+}
+
+export async function expandAssetPaths(releaseDir: string): Promise<string[]> {
+  const glob = new Bun.Glob("mango-lsp-*");
+  const resolved: string[] = [];
+  for await (const file of glob.scan(releaseDir)) {
+    resolved.push(`${releaseDir}/${file}`);
+  }
+  if (resolved.length === 0) {
+    throw new Error("No mango-lsp-* release assets found in dist/release");
+  }
+  resolved.push(`${releaseDir}/install.sh`, `${releaseDir}/install.ps1`);
+  return resolved;
+}
+
+async function runGhRelease(
+  tag: string,
+  displayVersion: string,
+  isPrerelease: boolean,
+): Promise<void> {
+  const assetPaths = await expandAssetPaths(`${ROOT_DIR}/dist/release`);
+  const args = buildGhReleaseArgs(tag, displayVersion, isPrerelease, assetPaths);
+  const proc = Bun.spawn(["gh", ...args], {
+    cwd: ROOT_DIR,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  const code = await proc.exited;
+  if (code !== 0) throw new Error(`gh release create failed with exit ${code}`);
 }
 
 async function runBun(args: readonly string[]): Promise<void> {
@@ -81,41 +123,6 @@ async function runBun(args: readonly string[]): Promise<void> {
   });
   const code = await proc.exited;
   if (code !== 0) throw new Error(`bun ${args.join(" ")} failed with exit ${code}`);
-}
-
-async function runGhRelease(
-  tag: string,
-  displayVersion: string,
-  isPrerelease: boolean,
-): Promise<void> {
-  const args = [
-    "release",
-    "create",
-    tag,
-    "--verify-tag",
-    "--title",
-    `mango-lsp ${displayVersion}`,
-    "--notes-file",
-    `${ROOT_DIR}/dist/release/release-notes.md`,
-  ];
-  if (isPrerelease) {
-    args.push("--prerelease");
-  } else {
-    args.push("--latest");
-  }
-  args.push(
-    `${ROOT_DIR}/dist/release/mango-lsp-*`,
-    `${ROOT_DIR}/dist/release/install.sh`,
-    `${ROOT_DIR}/dist/release/install.ps1`,
-  );
-
-  const proc = Bun.spawn(["gh", ...args], {
-    cwd: ROOT_DIR,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const code = await proc.exited;
-  if (code !== 0) throw new Error(`gh release create failed with exit ${code}`);
 }
 
 export async function runRelease(options: ReleaseOptions): Promise<void> {
