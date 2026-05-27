@@ -22,12 +22,18 @@ function Get-MangoLatestTag {
   return $release.tag_name
 }
 
+$Version = $Version -replace "^v", ""
+
 if (-not $Tag) {
   if (-not $Version) {
     $Tag = Get-MangoLatestTag
     $Version = $Tag -replace "^v", ""
   } else {
-    $Tag = $Version
+    $Tag = "v$Version"
+  }
+} else {
+  if (-not $Version) {
+    $Version = $Tag -replace "^v", ""
   }
 }
 
