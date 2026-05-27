@@ -7,7 +7,7 @@ export interface ReleaseVersion {
   readonly isPrerelease: boolean;
 }
 
-const RELEASE_TAG_PATTERN =
+export const RELEASE_TAG_PATTERN =
   /^v?(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)(?:\.(?<patch>0|[1-9]\d*))?(?<suffix>-[0-9A-Za-z][0-9A-Za-z.-]*)?$/;
 
 /** Parse a Git tag into GitHub and package-manager versions.
