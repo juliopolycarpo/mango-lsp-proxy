@@ -34,6 +34,19 @@ async function writeFakeBinary(dir: string, binaryName: string): Promise<string>
   return path;
 }
 
+async function spawnedResult(proc: {
+  stdout: ReadableStream<Uint8Array>;
+  stderr: ReadableStream<Uint8Array>;
+  exited: Promise<number>;
+}) {
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { code, stdout, stderr };
+}
+
 describe("install-native.cjs", () => {
   let tmpDir: string;
 
@@ -54,6 +67,10 @@ describe("install-native.cjs", () => {
       expect(commandPath).toBe(join(tmpDir, "bin", "mango-lsp"));
       if (commandPath === undefined) throw new Error("installNative should return a path");
       expect(await Bun.file(commandPath).text()).toBe(CONTENT);
+    });
+
+    test("returns undefined when the native package is not installed", () => {
+      expect(installer.installNative(tmpDir)).toBeUndefined();
     });
 
     test("returns undefined when the native binary file is missing", async () => {
@@ -88,18 +105,42 @@ describe("install-native.cjs", () => {
       });
     }
 
-    test("exits 0 and prints a hint when the binary is missing", async () => {
+    function assertCli(
+      envExtra: Record<string, string>,
+      expectCode: number,
+      expectStdoutContains: string[],
+    ) {
+      return async () => {
+        const scriptDir = await copyScriptToTmp();
+        const proc = spawn(scriptDir, envExtra);
+        const { code, stdout, stderr } = await spawnedResult(proc);
+
+        expect(code).toBe(expectCode);
+        expect(stderr).toBe("");
+        for (const substr of expectStdoutContains) {
+          expect(stdout).toContain(substr);
+        }
+      };
+    }
+
+    test(
+      "exits 0 when the native package is not installed",
+      assertCli(
+        { MANGO_LSP_NATIVE_TARGET: (detectHostNativeTarget() ?? { id: "linux-x64" }).id },
+        0,
+        ["skipping postinstall"],
+      ),
+    );
+
+    test("exits 0 when the native binary file is missing", async () => {
       const host = detectHostNativeTarget();
       if (host === undefined) throw new Error("host target should be configured");
       await fakePackageRoot(tmpDir, host);
 
       const scriptDir = await copyScriptToTmp();
-      const proc = spawn(scriptDir, { MANGO_LSP_NATIVE_TARGET: host.id });
-      const [stdout, stderr, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
+      const { code, stdout, stderr } = await spawnedResult(
+        spawn(scriptDir, { MANGO_LSP_NATIVE_TARGET: host.id }),
+      );
 
       expect(code).toBe(0);
       expect(stderr).toBe("");
@@ -107,19 +148,10 @@ describe("install-native.cjs", () => {
       expect(stdout).toContain("bun run build:current");
     });
 
-    test("exits 0 with a message for unsupported platforms", async () => {
-      const scriptDir = await copyScriptToTmp();
-      const proc = spawn(scriptDir, { MANGO_LSP_NATIVE_TARGET: "unsupported-fake-id" });
-      const [stdout, stderr, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
-
-      expect(code).toBe(0);
-      expect(stderr).toBe("");
-      expect(stdout).toContain("unsupported platform");
-    });
+    test(
+      "exits 0 with a message for unsupported platforms",
+      assertCli({ MANGO_LSP_NATIVE_TARGET: "unsupported-fake-id" }, 0, ["unsupported platform"]),
+    );
 
     test("exits 0 and prints the installed path on success", async () => {
       const host = detectHostNativeTarget();
@@ -128,12 +160,9 @@ describe("install-native.cjs", () => {
       await writeFakeBinary(pkgDir, host.binaryName);
 
       const scriptDir = await copyScriptToTmp();
-      const proc = spawn(scriptDir, { MANGO_LSP_NATIVE_TARGET: host.id });
-      const [stdout, stderr, code] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
+      const { code, stdout, stderr } = await spawnedResult(
+        spawn(scriptDir, { MANGO_LSP_NATIVE_TARGET: host.id }),
+      );
 
       expect(code).toBe(0);
       expect(stderr).toBe("");
