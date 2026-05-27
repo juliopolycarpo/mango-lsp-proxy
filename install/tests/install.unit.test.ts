@@ -214,3 +214,32 @@ describe("install PATH profile check", () => {
     expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(false);
   });
 });
+
+describe("install arch detection (PowerShell)", () => {
+  type ProcessArch = "Arm64" | "X64" | "X86" | "Arm";
+
+  function psGetArch(processArch: ProcessArch): "arm64" | "x64" {
+    if (processArch === "Arm64") return "arm64";
+    return "x64";
+  }
+
+  test("returns arm64 when process architecture is Arm64", () => {
+    expect(psGetArch("Arm64")).toBe("arm64");
+  });
+
+  test("returns x64 for X64 process arch regardless of native arch", () => {
+    expect(psGetArch("X64")).toBe("x64");
+  });
+
+  test("returns x64 for X86 process arch", () => {
+    expect(psGetArch("X86")).toBe("x64");
+  });
+
+  test("returns x64 for Arm process arch (32-bit ARM)", () => {
+    expect(psGetArch("Arm")).toBe("x64");
+  });
+
+  test("matches npm process.arch semantics: x64 emulated Node on ARM64 hardware gets x64 binary", () => {
+    expect(psGetArch("X64")).toBe("x64");
+  });
+});

@@ -8,9 +8,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 function Get-MangoArch {
-  if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") {
-    return "arm64"
-  }
   if ([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq "Arm64") {
     return "arm64"
   }
