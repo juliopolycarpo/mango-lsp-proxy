@@ -1,5 +1,5 @@
-import { chmod, mkdir, rm } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { chmod, copyFile, mkdir, rm } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import {
   detectHostNativeTarget,
   getNativeTarget,
@@ -84,6 +84,17 @@ async function buildTarget(
   return { target, path: outputPath };
 }
 
+async function installToBin(
+  rootDir: string,
+  sourcePath: string,
+  binaryName: string,
+): Promise<void> {
+  const dest = join(rootDir, "bin", binaryName);
+  await mkdir(join(rootDir, "bin"), { recursive: true });
+  await copyFile(sourcePath, dest);
+  await chmod(dest, 0o755);
+}
+
 export async function buildNativeBinaries(
   options: BuildNativeOptions = {},
 ): Promise<NativeBuildOutput[]> {
@@ -97,9 +108,14 @@ export async function buildNativeBinaries(
     );
   }
 
+  const hostTarget = detectHostNativeTarget();
   const outputs: NativeBuildOutput[] = [];
   for (const target of targets) {
-    outputs.push(await buildTarget(rootDir, outputRoot, target));
+    const output = await buildTarget(rootDir, outputRoot, target);
+    outputs.push(output);
+    if (output.target.id === hostTarget?.id) {
+      await installToBin(rootDir, output.path, output.target.binaryName);
+    }
   }
   return outputs;
 }
