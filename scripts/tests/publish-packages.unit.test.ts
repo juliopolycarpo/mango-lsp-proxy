@@ -13,7 +13,8 @@ import {
 const ROOT = "mango-lsp-proxy";
 const NATIVES: readonly string[] = NATIVE_TARGETS.map((t) => t.packageName);
 const ALL_PACKAGES = [...NATIVES, ROOT];
-const FIRST_NATIVE = NATIVES[0]!;
+const FIRST_NATIVE = NATIVES[0];
+if (FIRST_NATIVE === undefined) throw new Error("NATIVES is empty");
 
 /* ─── helpers ─── */
 
@@ -140,9 +141,10 @@ describe("publishPackages", () => {
   });
 
   test("halts on the first exhausted package and logs recovery", async () => {
-    const [a, b] = NATIVE_TARGETS;
-    const firstTarget = a!;
-    const secondTarget = b!;
+    const firstTarget = NATIVE_TARGETS[0];
+    const secondTarget = NATIVE_TARGETS[1];
+    if (firstTarget === undefined || secondTarget === undefined)
+      throw new Error("NATIVE_TARGETS too small");
     const f = fakeDeps({
       publish: async (pkg: PublishablePackage): Promise<PublishStatus> => {
         if (pkg.name === secondTarget.packageName) throw new Error("permanent failure");

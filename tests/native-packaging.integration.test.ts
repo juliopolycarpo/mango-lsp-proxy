@@ -43,10 +43,7 @@ function expectedNativeDescription(target: NativeTarget): string {
 
 /* ─── setup helpers ─── */
 
-async function createFakeNativePackage(
-  rootDir: string,
-  target: NativeTarget,
-): Promise<string> {
+async function createFakeNativePackage(rootDir: string, target: NativeTarget): Promise<string> {
   const dir = join(rootDir, "node_modules", ...target.packageName.split("/"));
   await mkdir(join(dir, "bin"), { recursive: true });
   await Bun.write(join(dir, "package.json"), JSON.stringify({ name: target.packageName }));
@@ -85,9 +82,7 @@ describe("native package publishing metadata", () => {
       );
 
       const deps = pkg.optionalDependencies ?? {};
-      expect(Object.keys(deps).sort()).toEqual(
-        NATIVE_TARGETS.map((t) => t.packageName).sort(),
-      );
+      expect(Object.keys(deps).sort()).toEqual(NATIVE_TARGETS.map((t) => t.packageName).sort());
       for (const target of NATIVE_TARGETS) {
         expect(deps[target.packageName]).toBe(pkg.version);
       }

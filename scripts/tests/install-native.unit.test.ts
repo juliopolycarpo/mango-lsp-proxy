@@ -20,10 +20,7 @@ interface NativeTargetShape {
 const installer = require("../install-native.cjs") as NativeInstaller;
 const CONTENT = '#!/bin/sh\necho "fake binary $*"\n';
 
-async function fakePackageRoot(
-  rootDir: string,
-  target: NativeTargetShape,
-): Promise<string> {
+async function fakePackageRoot(rootDir: string, target: NativeTargetShape): Promise<string> {
   const dir = join(rootDir, "node_modules", ...target.packageName.split("/"));
   await mkdir(join(dir, "bin"), { recursive: true });
   await Bun.write(join(dir, "package.json"), JSON.stringify({ name: target.packageName }));
@@ -55,7 +52,8 @@ describe("install-native.cjs", () => {
 
       const commandPath = installer.installNative(tmpDir);
       expect(commandPath).toBe(join(tmpDir, "bin", "mango-lsp"));
-      expect(await Bun.file(commandPath!).text()).toBe(CONTENT);
+      if (commandPath === undefined) throw new Error("installNative should return a path");
+      expect(await Bun.file(commandPath).text()).toBe(CONTENT);
     });
 
     test("returns undefined when the native binary file is missing", async () => {
@@ -70,8 +68,14 @@ describe("install-native.cjs", () => {
     async function copyScriptToTmp(): Promise<string> {
       const scriptDir = join(tmpDir, "scripts");
       await mkdir(scriptDir, { recursive: true });
-      await copyFile(join(import.meta.dir, "../install-native.cjs"), join(scriptDir, "install-native.cjs"));
-      await copyFile(join(import.meta.dir, "../native-target-data.json"), join(scriptDir, "native-target-data.json"));
+      await copyFile(
+        join(import.meta.dir, "../install-native.cjs"),
+        join(scriptDir, "install-native.cjs"),
+      );
+      await copyFile(
+        join(import.meta.dir, "../native-target-data.json"),
+        join(scriptDir, "native-target-data.json"),
+      );
       return scriptDir;
     }
 
