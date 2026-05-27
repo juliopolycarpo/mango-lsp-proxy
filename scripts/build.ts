@@ -25,7 +25,12 @@ export interface BuildNativeOptions {
   readonly clean?: boolean;
 }
 
-function parseTargetList(value: string): NativeTargetId[] {
+/** Parse a comma-separated native target list and reject unknown ids.
+ *
+ * @example
+ * parseTargetList("linux-x64,darwin-arm64")
+ */
+export function parseTargetList(value: string): NativeTargetId[] {
   return value
     .split(",")
     .map((part) => part.trim())
@@ -120,7 +125,12 @@ export async function buildNativeBinaries(
   return outputs;
 }
 
-function help(): string {
+/** Render build CLI help with the supported native target ids.
+ *
+ * @example
+ * help().includes("--target")
+ */
+export function help(): string {
   return `Usage: bun scripts/build.ts [options]
 
 Build standalone mango-lsp binaries with Bun.
@@ -141,7 +151,12 @@ ${nativeTargetIds()
 `;
 }
 
-function cliOptions(argv: readonly string[]): BuildNativeOptions | "help" | "list" {
+/** Parse build CLI flags into native build options.
+ *
+ * @example
+ * cliOptions(["--target", "linux-x64"]).targetIds
+ */
+export function cliOptions(argv: readonly string[]): BuildNativeOptions | "help" | "list" {
   const targetIds: NativeTargetId[] = [];
   let outputRoot: string | undefined;
   let clean = false;

@@ -240,7 +240,12 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
   }
 }
 
-function parseArgv(argv: readonly string[]): ReleaseOptions {
+/** Parse release CLI flags into the release pipeline options.
+ *
+ * @example
+ * parseArgv(["--tag", "0.1", "--dry-run"]).dryRun
+ */
+export function parseArgv(argv: readonly string[]): ReleaseOptions {
   let tag: string | undefined;
   let sha: string | undefined;
   let dryRun = false;

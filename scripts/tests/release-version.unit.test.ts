@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseReleaseTag, RELEASE_TAG_PATTERN } from "../release-version";
+import { githubOutput, parseReleaseTag, RELEASE_TAG_PATTERN } from "../release-version";
 
 function globToRegex(glob: string): RegExp {
   let pattern = "";
@@ -55,6 +55,18 @@ describe("release version mapping", () => {
 
   test("rejects tags outside the release pattern", () => {
     expect(() => parseReleaseTag("release/0.1")).toThrow("release tags must look like");
+  });
+
+  test("formats GitHub action outputs from parsed release versions", () => {
+    expect(githubOutput(parseReleaseTag("v0.2-pre.1"))).toBe(
+      [
+        "display_version=0.2-pre.1",
+        "package_version=0.2.0-pre.1",
+        "prerelease=true",
+        "npm_tag=next",
+        "",
+      ].join("\n"),
+    );
   });
 });
 

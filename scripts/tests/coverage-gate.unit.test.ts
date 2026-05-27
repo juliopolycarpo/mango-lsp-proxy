@@ -1,5 +1,17 @@
 import { describe, expect, test } from "bun:test";
-import { coverageFailures, parseBunCoverageSummary, thresholdsFromEnv } from "../coverage-gate";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  coverageCommand,
+  coverageFailures,
+  humanSummary,
+  machineSummary,
+  markdownSummary,
+  parseBunCoverageSummary,
+  thresholdsFromEnv,
+  writeGithubSummary,
+} from "../coverage-gate";
 
 describe("coverage gate summary parsing", () => {
   test("parses Bun text coverage totals", () => {
@@ -24,8 +36,8 @@ describe("coverage gate summary parsing", () => {
 describe("coverage gate thresholds", () => {
   test("uses baseline defaults when env overrides are absent", () => {
     expect(thresholdsFromEnv({})).toEqual({
-      functions: 71,
-      lines: 65,
+      functions: 90,
+      lines: 75,
       target: 90,
     });
   });
@@ -54,5 +66,51 @@ describe("coverage gate thresholds", () => {
     );
 
     expect(failures).toEqual(["lines", "functions"]);
+  });
+});
+
+describe("coverage gate output", () => {
+  const totals = {
+    functions: { percent: 91.25 },
+    lines: { percent: 76.5 },
+  };
+  const thresholds = { functions: 90, lines: 75, target: 90 };
+
+  test("uses the Bun coverage command with text and lcov reporters", () => {
+    expect(coverageCommand()).toEqual([
+      "bun",
+      "test",
+      "--coverage",
+      "--coverage-reporter=text",
+      "--coverage-reporter=lcov",
+    ]);
+  });
+
+  test("formats human, machine, and markdown summaries", () => {
+    expect(humanSummary(totals, thresholds)).toContain("lines: 76.50% minimum 75% ok");
+    expect(JSON.parse(machineSummary(totals, thresholds))).toEqual({
+      coverageGate: { thresholds, totals },
+    });
+    expect(markdownSummary(totals, thresholds)).toContain("| Functions | 91.25% | 90% | 90% |");
+  });
+
+  test("appends GitHub step summaries when configured", async () => {
+    const previous = process.env.GITHUB_STEP_SUMMARY;
+    const summaryPath = join(
+      await mkdtemp(join(tmpdir(), "mango-coverage-summary-")),
+      "summary.md",
+    );
+    process.env.GITHUB_STEP_SUMMARY = summaryPath;
+
+    try {
+      await writeGithubSummary("## Coverage\n");
+      expect(await Bun.file(summaryPath).text()).toBe("## Coverage\n");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.GITHUB_STEP_SUMMARY;
+      } else {
+        process.env.GITHUB_STEP_SUMMARY = previous;
+      }
+    }
   });
 });

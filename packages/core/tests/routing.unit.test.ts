@@ -4,6 +4,8 @@ import { createProxy } from "@mango-lsp/core";
 import { createMemoryLogger } from "@mango-lsp/logger";
 import type { LspClient, LspClientOptions } from "@mango-lsp/lsp-client";
 import {
+  ErrorCodes,
+  errorResponse,
   isErrorResponse,
   type JsonRpcNotification,
   type JsonRpcRequest,
@@ -14,28 +16,48 @@ import {
 } from "@mango-lsp/protocol";
 import { MANGO_LSP_EXECUTE_COMMAND, type ServerId } from "@mango-lsp/shared";
 
+type FakeReply =
+  | ((req: JsonRpcRequest) => JsonRpcResponse | Promise<JsonRpcResponse>)
+  | Error
+  | JsonRpcResponse
+  | unknown;
+
 class FakeClient implements LspClient {
   readonly id: ServerId;
   readonly requests: JsonRpcRequest[] = [];
   readonly notifications: JsonRpcNotification[] = [];
-  readonly #responses: Record<string, unknown>;
+  startCount = 0;
+  stopCount = 0;
+  notifyError: Error | undefined;
+  startError: Error | undefined;
+  readonly #responses: Record<string, FakeReply>;
   readonly #listeners = new Set<(notification: JsonRpcNotification) => void>();
 
-  constructor(id: ServerId, responses: Record<string, unknown>) {
+  constructor(id: ServerId, responses: Record<string, FakeReply>) {
     this.id = id;
     this.#responses = responses;
   }
 
-  async start(): Promise<void> {}
+  async start(): Promise<void> {
+    this.startCount += 1;
+    if (this.startError !== undefined) throw this.startError;
+  }
 
-  async stop(): Promise<void> {}
+  async stop(): Promise<void> {
+    this.stopCount += 1;
+  }
 
   async request<R = unknown>(req: JsonRpcRequest): Promise<JsonRpcResponse<R>> {
     this.requests.push(req);
-    return successResponse(req.id, this.#responses[req.method] ?? null) as JsonRpcResponse<R>;
+    const reply = this.#responses[req.method] ?? null;
+    if (reply instanceof Error) throw reply;
+    if (typeof reply === "function") return (await reply(req)) as JsonRpcResponse<R>;
+    if (isJsonRpcResponse(reply)) return reply as JsonRpcResponse<R>;
+    return successResponse(req.id, reply) as JsonRpcResponse<R>;
   }
 
   notify(note: JsonRpcNotification): void {
+    if (this.notifyError !== undefined) throw this.notifyError;
     this.notifications.push(note);
   }
 
@@ -49,6 +71,16 @@ class FakeClient implements LspClient {
   emit(note: JsonRpcNotification): void {
     for (const listener of this.#listeners) listener(note);
   }
+}
+
+function isJsonRpcResponse(value: unknown): value is JsonRpcResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "jsonrpc" in value &&
+    "id" in value &&
+    ("result" in value || "error" in value)
+  );
 }
 
 function config(): MangoLspConfig {
@@ -66,7 +98,119 @@ function config(): MangoLspConfig {
   };
 }
 
+function fullConfig(): MangoLspConfig {
+  return {
+    workspace: { rootMarkers: [".git"], logDir: ".mango-lsp/logs" },
+    defaults: { timeout: 500, restartOnCrash: false, maxRestarts: 0 },
+    servers: {
+      alpha: {
+        command: "alpha",
+        args: ["--alpha"],
+        roles: ["navigation", "hover", "references", "symbols"],
+        languages: [],
+        env: { ALPHA: "1" },
+      },
+      beta: {
+        command: "beta",
+        args: ["--beta"],
+        roles: ["diagnostics", "codeActions", "formatting"],
+        languages: [],
+      },
+    },
+    routes: {
+      navigation: { strategy: "firstSuccessful", servers: ["alpha"] },
+      hover: { strategy: "preferred", servers: ["alpha"] },
+      references: { strategy: "firstSuccessful", servers: ["alpha"] },
+      symbols: { strategy: "merge", servers: ["alpha"] },
+      diagnostics: { strategy: "aggregate", servers: ["beta"] },
+      codeActions: { strategy: "merge", servers: ["beta"] },
+      formatting: { strategy: "preferred", servers: ["beta"] },
+    },
+  };
+}
+
+function proxyForClients(cfg: MangoLspConfig, clients: ReadonlyMap<ServerId, FakeClient>) {
+  return createProxy({
+    config: cfg,
+    rootDir: "/workspace",
+    logger: createMemoryLogger({ level: "error" }),
+    clientFactory: (options) => clients.get(options.id) ?? new FakeClient(options.id, {}),
+  });
+}
+
+function metadata(serverId: string, originalData?: unknown): Record<string, unknown> {
+  return {
+    __mangoLsp: originalData === undefined ? { serverId } : { serverId, originalData },
+  };
+}
+
+function commandMetadata(serverId: string, command: string): Record<string, unknown> {
+  return { __mangoLsp: { serverId, command } };
+}
+
 describe("@mango-lsp/core routing", () => {
+  test("initializes child clients, advertises aggregate capabilities, and routes commands", async () => {
+    const alpha = new FakeClient("alpha", {
+      initialize: {
+        capabilities: { executeCommandProvider: { commands: ["alpha.apply"] } },
+      },
+    });
+    const beta = new FakeClient("beta", {
+      initialize: {
+        capabilities: { executeCommandProvider: { commands: ["beta.apply"] } },
+      },
+      "workspace/executeCommand": { applied: "beta" },
+    });
+    const proxy = proxyForClients(
+      fullConfig(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", beta],
+      ]),
+    );
+
+    const initialized = await proxy.handleRequest(request(1, "initialize", {}));
+    const executed = await proxy.handleRequest(
+      request(2, "workspace/executeCommand", { command: "beta.apply", arguments: [1] }),
+    );
+
+    expect(initialized).toMatchObject({
+      result: {
+        capabilities: {
+          definitionProvider: true,
+          hoverProvider: true,
+          referencesProvider: true,
+          documentSymbolProvider: true,
+          diagnosticProvider: { workspaceDiagnostics: true },
+          codeActionProvider: { resolveProvider: true },
+          documentFormattingProvider: true,
+        },
+      },
+    });
+    expect(executed).toEqual(successResponse(2, { applied: "beta" }));
+    expect(beta.requests.at(-1)?.params).toEqual({
+      command: "beta.apply",
+      arguments: [1],
+    });
+  });
+
+  test("starts clients once and rolls back clients already started after a failure", async () => {
+    const alpha = new FakeClient("alpha", {});
+    const beta = new FakeClient("beta", {});
+    beta.startError = new Error("beta failed");
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", beta],
+      ]),
+    );
+
+    await expect(proxy.start()).rejects.toThrow("beta failed");
+    expect(alpha.stopCount).toBe(1);
+    expect(beta.stopCount).toBe(0);
+  });
+
   test("merges code actions and routes executeCommand to the source server", async () => {
     const clients = new Map<ServerId, FakeClient>([
       [
@@ -89,11 +233,7 @@ describe("@mango-lsp/core routing", () => {
         }),
       ],
     ]);
-    const proxy = createProxy({
-      config: config(),
-      logger: createMemoryLogger({ level: "error" }),
-      clientFactory: (options) => clients.get(options.id) ?? new FakeClient(options.id, {}),
-    });
+    const proxy = proxyForClients(config(), clients);
 
     const response = await proxy.handleRequest(request(1, "textDocument/codeAction", {}));
     expect(isErrorResponse(response)).toBe(false);
@@ -118,14 +258,148 @@ describe("@mango-lsp/core routing", () => {
     });
   });
 
+  test("uses first successful routing and returns the first child error when nothing is usable", async () => {
+    const cfg = config();
+    cfg.routes.hover = { strategy: "firstSuccessful", servers: ["alpha", "beta"] };
+    const alpha = new FakeClient("alpha", {
+      "textDocument/hover": (req: JsonRpcRequest) =>
+        errorResponse(req.id, ErrorCodes.InternalError, "alpha failed"),
+    });
+    const beta = new FakeClient("beta", {
+      "textDocument/hover": { contents: { kind: "plaintext", value: "beta" } },
+    });
+    const proxy = proxyForClients(
+      cfg,
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", beta],
+      ]),
+    );
+
+    const success = await proxy.handleRequest(request(1, "textDocument/hover", {}));
+    expect(success).toEqual(successResponse(1, { contents: { kind: "plaintext", value: "beta" } }));
+
+    const failed = proxyForClients(
+      cfg,
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", new FakeClient("beta", { "textDocument/hover": null })],
+      ]),
+    );
+
+    const response = await failed.handleRequest(request(2, "textDocument/hover", {}));
+    expect(response).toEqual(errorResponse(2, ErrorCodes.InternalError, "alpha failed"));
+  });
+
+  test("aggregates arrays, scalar results, and all-empty failures", async () => {
+    const cfg = config();
+    const clients = new Map<ServerId, FakeClient>([
+      ["alpha", new FakeClient("alpha", { "textDocument/diagnostic": [{ message: "alpha" }] })],
+      ["beta", new FakeClient("beta", { "textDocument/diagnostic": [{ message: "beta" }] })],
+    ]);
+    const proxy = proxyForClients(cfg, clients);
+
+    await expect(proxy.handleRequest(request(1, "textDocument/diagnostic", {}))).resolves.toEqual(
+      successResponse(1, [{ message: "beta" }, { message: "alpha" }]),
+    );
+
+    const scalar = proxyForClients(
+      cfg,
+      new Map<ServerId, FakeClient>([
+        ["alpha", new FakeClient("alpha", { "textDocument/diagnostic": { message: "alpha" } })],
+        ["beta", new FakeClient("beta", { "textDocument/diagnostic": { message: "beta" } })],
+      ]),
+    );
+    await expect(scalar.handleRequest(request(2, "textDocument/diagnostic", {}))).resolves.toEqual(
+      successResponse(2, [{ message: "beta" }, { message: "alpha" }]),
+    );
+
+    const empty = proxyForClients(
+      cfg,
+      new Map<ServerId, FakeClient>([
+        ["alpha", new FakeClient("alpha", { "textDocument/diagnostic": null })],
+        ["beta", new FakeClient("beta", { "textDocument/diagnostic": undefined })],
+      ]),
+    );
+    const response = await empty.handleRequest(request(3, "textDocument/diagnostic", {}));
+    expect(response).toEqual(
+      errorResponse(3, ErrorCodes.InternalError, "no child LSP returned a result"),
+    );
+  });
+
+  test("resolves code actions with original data restored for the child server", async () => {
+    const alpha = new FakeClient("alpha", {
+      "codeAction/resolve": (req: JsonRpcRequest) =>
+        successResponse(req.id, {
+          title: "resolved",
+          data: { child: true },
+          command: { title: "Apply", command: "alpha.apply", arguments: [2] },
+        }),
+    });
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", new FakeClient("beta", {})],
+      ]),
+    );
+
+    const response = await proxy.handleRequest(
+      request(1, "codeAction/resolve", {
+        title: "resolve me",
+        data: metadata("alpha", { child: true }),
+      }),
+    );
+
+    expect(alpha.requests.at(-1)?.params).toEqual({
+      title: "resolve me",
+      data: { child: true },
+    });
+    expect(response).toMatchObject({
+      result: {
+        data: { __mangoLsp: { serverId: "alpha", originalData: { child: true } } },
+        command: { command: MANGO_LSP_EXECUTE_COMMAND },
+      },
+    });
+  });
+
+  test("reports route and metadata errors without contacting children", async () => {
+    const proxy = proxyForClients(
+      { ...config(), routes: {} },
+      new Map<ServerId, FakeClient>([
+        ["alpha", new FakeClient("alpha", {})],
+        ["beta", new FakeClient("beta", {})],
+      ]),
+    );
+
+    await expect(proxy.handleRequest(request(1, "custom/request", {}))).resolves.toMatchObject({
+      error: { code: ErrorCodes.MethodNotFound, message: "method is not routed: custom/request" },
+    });
+    await expect(proxy.handleRequest(request(2, "textDocument/hover", {}))).resolves.toMatchObject({
+      error: { code: ErrorCodes.MethodNotFound, message: "no route configured for hover" },
+    });
+    await expect(
+      proxy.handleRequest(
+        request(3, "workspace/executeCommand", {
+          command: MANGO_LSP_EXECUTE_COMMAND,
+          arguments: [commandMetadata("missing", "fixture.apply")],
+        }),
+      ),
+    ).resolves.toMatchObject({
+      error: { code: ErrorCodes.MethodNotFound, message: "unknown server: missing" },
+    });
+  });
+
   test("aggregates diagnostics in configured server order", async () => {
     const alpha = new FakeClient("alpha", {});
     const beta = new FakeClient("beta", {});
-    const proxy = createProxy({
-      config: config(),
-      logger: createMemoryLogger({ level: "error" }),
-      clientFactory: (options) => (options.id === "alpha" ? alpha : beta),
-    });
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", beta],
+      ]),
+    );
     const external: JsonRpcNotification[] = [];
     proxy.onNotification((note) => external.push(note));
 
@@ -151,6 +425,33 @@ describe("@mango-lsp/core routing", () => {
         { message: "alpha", source: "alpha" },
       ],
     });
+  });
+
+  test("forwards non-diagnostic notifications and ignores one child notification failure", async () => {
+    const alpha = new FakeClient("alpha", {});
+    const beta = new FakeClient("beta", {});
+    alpha.notifyError = new Error("alpha notify failed");
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", beta],
+      ]),
+    );
+    const external: JsonRpcNotification[] = [];
+    const unsubscribe = proxy.onNotification((note) => external.push(note));
+
+    await proxy.start();
+    alpha.emit(notification("window/logMessage", { message: "child" }));
+    await proxy.handleNotification(notification("textDocument/didOpen", {}));
+    await proxy.handleNotification(notification("exit"));
+    unsubscribe();
+    alpha.emit(notification("window/logMessage", { message: "after unsubscribe" }));
+
+    expect(external).toEqual([notification("window/logMessage", { message: "child" })]);
+    expect(beta.notifications.map((item) => item.method)).toEqual(["textDocument/didOpen"]);
+    expect(alpha.stopCount).toBeGreaterThanOrEqual(1);
+    expect(beta.stopCount).toBeGreaterThanOrEqual(1);
   });
 
   test("handles common child-to-client requests locally", async () => {
@@ -187,6 +488,13 @@ describe("@mango-lsp/core routing", () => {
     );
     await expect(handler(request(13, "window/workDoneProgress/create", {}))).resolves.toEqual(
       successResponse(13, null),
+    );
+    await expect(handler(request(14, "unsupported/request", {}))).resolves.toEqual(
+      errorResponse(
+        14,
+        ErrorCodes.MethodNotFound,
+        "child-to-client request is not supported: unsupported/request",
+      ),
     );
 
     await proxy.stop();

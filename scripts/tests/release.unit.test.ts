@@ -3,7 +3,13 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ChangelogOptions } from "../changelog";
-import { buildGhReleaseArgs, expandAssetPaths, formatGhCommand, runRelease } from "../release";
+import {
+  buildGhReleaseArgs,
+  expandAssetPaths,
+  formatGhCommand,
+  parseArgv,
+  runRelease,
+} from "../release";
 import type { ReleaseArtifactOptions } from "../release-artifacts";
 
 /* ─── test doubles ─── */
@@ -119,6 +125,45 @@ describe("formatGhCommand", () => {
     expect(cmd).toContain("mango-lsp-*");
     expect(cmd).toContain("install.sh");
     expect(cmd).toContain("install.ps1");
+  });
+});
+
+describe("release CLI options", () => {
+  test("parses dry-run release pipeline flags", () => {
+    expect(
+      parseArgv([
+        "--tag",
+        "v0.2",
+        "--sha",
+        "abc123",
+        "--dry-run",
+        "--skip-check",
+        "--skip-tests",
+        "--skip-build",
+        "--skip-smoke",
+        "--skip-artifacts",
+        "--skip-release-notes",
+        "--skip-publish",
+      ]),
+    ).toEqual({
+      tag: "v0.2",
+      sha: "abc123",
+      dryRun: true,
+      skipCheck: true,
+      skipTests: true,
+      skipBuild: true,
+      skipSmoke: true,
+      skipArtifacts: true,
+      skipReleaseNotes: true,
+      skipPublish: true,
+    });
+  });
+
+  test("rejects incomplete or unknown release flags", () => {
+    expect(() => parseArgv([])).toThrow("usage: bun scripts/release.ts");
+    expect(() => parseArgv(["--tag"])).toThrow("--tag requires a value");
+    expect(() => parseArgv(["--sha"])).toThrow("--sha requires a value");
+    expect(() => parseArgv(["--tag", "0.2", "--wat"])).toThrow("unknown option");
   });
 });
 

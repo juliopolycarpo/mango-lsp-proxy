@@ -25,8 +25,8 @@ export interface CoverageRun {
 
 const ROOT_DIR = resolve(import.meta.dir, "..");
 const DEFAULT_THRESHOLDS: CoverageThresholds = {
-  functions: 71,
-  lines: 65,
+  functions: 90,
+  lines: 75,
   target: 90,
 };
 
@@ -76,7 +76,12 @@ function percentEnv(value: string | undefined, fallback: number): number {
   throw new Error(`coverage percentage must be 0..100, got ${value}`);
 }
 
-function coverageCommand(): string[] {
+/** Return the Bun command used by the coverage gate.
+ *
+ * @example
+ * coverageCommand().includes("--coverage")
+ */
+export function coverageCommand(): string[] {
   return ["bun", "test", "--coverage", "--coverage-reporter=text", "--coverage-reporter=lcov"];
 }
 
@@ -119,7 +124,12 @@ function percent(value: number): string {
   return `${value.toFixed(2)}%`;
 }
 
-function humanSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
+/** Format a plain-text coverage summary for local terminal output.
+ *
+ * @example
+ * humanSummary(totals, thresholds).includes("coverage gate summary")
+ */
+export function humanSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
   return [
     "",
     "coverage gate summary",
@@ -134,7 +144,12 @@ function metricLine(name: string, metric: CoverageMetric, minimum: number): stri
   return `${name}: ${percent(metric.percent)} minimum ${minimum}% ${statusLabel(metric.percent, minimum)}`;
 }
 
-function machineSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
+/** Format a JSON coverage summary for machine readers.
+ *
+ * @example
+ * JSON.parse(machineSummary(totals, thresholds)).coverageGate
+ */
+export function machineSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
   return JSON.stringify({
     coverageGate: {
       thresholds,
@@ -143,7 +158,12 @@ function machineSummary(totals: CoverageTotals, thresholds: CoverageThresholds):
   });
 }
 
-function markdownSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
+/** Format a Markdown coverage summary for GitHub Actions.
+ *
+ * @example
+ * markdownSummary(totals, thresholds).startsWith("## Coverage Gate")
+ */
+export function markdownSummary(totals: CoverageTotals, thresholds: CoverageThresholds): string {
   return [
     "## Coverage Gate",
     "",
@@ -161,7 +181,12 @@ function row(name: string, metric: CoverageMetric, minimum: number, target: numb
   return `| ${name} | ${percent(metric.percent)} | ${minimum}% | ${target}% |`;
 }
 
-async function writeGithubSummary(markdown: string): Promise<void> {
+/** Append Markdown to GITHUB_STEP_SUMMARY when the variable is set.
+ *
+ * @example
+ * await writeGithubSummary("## Coverage\n")
+ */
+export async function writeGithubSummary(markdown: string): Promise<void> {
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath === undefined || summaryPath === "") return;
   mkdirSync(dirname(summaryPath), { recursive: true });

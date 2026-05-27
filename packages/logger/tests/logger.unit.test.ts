@@ -1,8 +1,13 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createJsonlLogger } from "@mango-lsp/logger";
+import {
+  createJsonlLogger,
+  createLogger,
+  createMemoryLogger,
+  resolveLogDir,
+} from "@mango-lsp/logger";
 
 describe("@mango-lsp/logger", () => {
   test("writes scoped JSONL records", async () => {
@@ -27,5 +32,39 @@ describe("@mango-lsp/logger", () => {
       message: "ready",
       data: { pid: 123 },
     });
+  });
+
+  test("filters memory records by level and preserves nested scopes", async () => {
+    const logger = createMemoryLogger({ level: "warn", scope: "root" });
+
+    logger.trace("trace");
+    logger.debug("debug");
+    logger.info("info");
+    logger.child("child").warn("warn", { child: true });
+    logger.error("error");
+    await logger.flush?.();
+    await logger.close?.();
+
+    expect(logger.records.map((record) => record.message)).toEqual(["warn", "error"]);
+    expect(logger.records[0]).toMatchObject({
+      level: "warn",
+      scope: "root:child",
+      data: { child: true },
+    });
+  });
+
+  test("writes stderr logs and resolves absolute log directories", () => {
+    const spy = spyOn(console, "error").mockImplementation(() => {});
+    const logger = createLogger({ level: "error", scope: "cli" });
+
+    try {
+      logger.error("failed", { code: 1 });
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(String(spy.mock.calls[0]?.[0])).toContain("ERROR (cli) failed");
+    } finally {
+      spy.mockRestore();
+    }
+
+    expect(resolveLogDir("/repo", "/var/log/mango")).toBe("/var/log/mango");
   });
 });
