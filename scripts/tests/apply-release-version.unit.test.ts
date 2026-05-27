@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { applyReleaseVersion } from "../apply-release-version";
@@ -18,9 +18,18 @@ const PACKAGE_PATHS = [
   ...NATIVE_TARGETS.map((target) => `packages/native/${target.id}/package.json`),
 ];
 
-async function makeTempRoot(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "mango-release-"));
+let tempDirs: string[] = [];
+
+async function makeTemp(prefix: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
 }
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((d) => rm(d, { recursive: true, force: true })));
+  tempDirs = [];
+});
 
 async function seedPackage(rootDir: string, relativePath: string, extra?: object): Promise<void> {
   const fullPath = join(rootDir, relativePath);
@@ -46,11 +55,15 @@ async function readSharedVersion(rootDir: string): Promise<string> {
   return match?.[1] ?? "";
 }
 
+async function seedAll(rootDir: string, version: string): Promise<void> {
+  await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(rootDir, p)));
+  await seedSharedVersion(rootDir, version);
+}
+
 describe("applyReleaseVersion", () => {
   test("bumps every package.json and the runtime constant", async () => {
-    const root = await makeTempRoot();
-    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
-    await seedSharedVersion(root, "0.0.0");
+    const root = await makeTemp("mango-release-");
+    await seedAll(root, "0.0.0");
 
     await applyReleaseVersion("1.2.3", root);
 
@@ -60,10 +73,26 @@ describe("applyReleaseVersion", () => {
     expect(await readSharedVersion(root)).toBe("1.2.3");
   });
 
+  test("preserves non-version fields in package.json", async () => {
+    const root = await makeTemp("mango-release-");
+    await seedAll(root, "0.0.0");
+    await seedPackage(root, "package.json", { name: "mango-lsp", license: "MIT" });
+
+    await applyReleaseVersion("1.0.0", root);
+
+    const pkg = (await Bun.file(join(root, "package.json")).json()) as {
+      version?: string;
+      name?: string;
+      license?: string;
+    };
+    expect(pkg.version).toBe("1.0.0");
+    expect(pkg.name).toBe("mango-lsp");
+    expect(pkg.license).toBe("MIT");
+  });
+
   test("does not abort when the new version equals the current one", async () => {
-    const root = await makeTempRoot();
-    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
-    await seedSharedVersion(root, "0.1.0");
+    const root = await makeTemp("mango-release-");
+    await seedAll(root, "0.1.0");
 
     await applyReleaseVersion("0.1.0", root);
 
@@ -71,7 +100,7 @@ describe("applyReleaseVersion", () => {
   });
 
   test("rejects when MANGO_LSP_VERSION is missing from shared/src/index.ts", async () => {
-    const root = await makeTempRoot();
+    const root = await makeTemp("mango-release-");
     await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
     const sharedPath = join(root, "packages", "shared", "src", "index.ts");
     await mkdir(dirname(sharedPath), { recursive: true });
@@ -83,9 +112,8 @@ describe("applyReleaseVersion", () => {
   });
 
   test("dryRun logs intent and touches nothing", async () => {
-    const root = await makeTempRoot();
-    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
-    await seedSharedVersion(root, "0.0.0");
+    const root = await makeTemp("mango-release-");
+    await seedAll(root, "0.0.0");
 
     const logs: string[] = [];
     await applyReleaseVersion("9.9.9", root, { dryRun: true, log: (msg) => logs.push(msg) });
@@ -100,9 +128,8 @@ describe("applyReleaseVersion", () => {
   });
 
   test("updates optionalDependencies for native packages", async () => {
-    const root = await makeTempRoot();
-    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
-    await seedSharedVersion(root, "0.0.0");
+    const root = await makeTemp("mango-release-");
+    await seedAll(root, "0.0.0");
 
     const rootPackage = join(root, "package.json");
     const rootPkg = (await Bun.file(rootPackage).json()) as {
