@@ -6,6 +6,7 @@
  *   1. typecheck via tsgo (@typescript/native-preview)
  *   2. biome check
  *   3. dprint check
+ *   4. git-cliff changelog config check
  *
  * Exits non-zero if any step fails. Uses only Bun APIs; no extra deps.
  */
@@ -19,6 +20,7 @@ const steps: Step[] = [
   { name: "typecheck", cmd: ["bunx", "tsgo", "--noEmit"] },
   { name: "biome", cmd: ["bunx", "--bun", "@biomejs/biome", "check", "."] },
   { name: "dprint", cmd: ["bunx", "dprint", "check"] },
+  { name: "changelog", cmd: ["bun", "scripts/changelog.ts", "check"] },
 ];
 
 function banner(title: string): void {

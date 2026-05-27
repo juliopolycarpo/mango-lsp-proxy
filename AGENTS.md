@@ -8,14 +8,21 @@ This file provides guidance to coding agents when working with code in this repo
 bun install           # install dependencies
 bun run dev help      # run the CLI without building (entry: apps/cli/src/main.ts)
 bun test              # run all tests
-bun test '**/*.unit.test.ts'        # unit tests only
-bun test '**/*.integration.test.ts' # integration tests only
+bun run test:unit                  # unit tests only
+bun run test:integration           # integration tests only
+bun run test:e2e                   # e2e tests only
 bun run check         # typecheck (tsgo) + biome lint + dprint format-check (sequential, stops on first failure)
 bun run fmt           # auto-format with biome + dprint
+bun run changelog     # regenerate CHANGELOG.md from conventional commits
+bun run changelog:check # validate git-cliff changelog generation
 bun run typecheck     # tsgo --noEmit only
 bun run lint          # biome check only
-bun run build         # bundle to dist/mango-lsp (Bun JS, not compiled)
-bun run build:bin     # compile to a standalone binary dist/mango-lsp
+bun run build         # compile all native binary package targets
+bun run build:bin     # alias for native binary build
+bun run build:current # compile only the current host native target
+bun run build:js      # bundle to dist/mango-lsp (Bun JS, not compiled)
+bun run smoke:bin     # validate built binary headers and run host binary --version
+bun run publish:npm --tag latest  # publish native packages then root, with retries + recovery
 ```
 
 `bun run check` is the single pre-commit gate — it runs typecheck, biome, and dprint in sequence.

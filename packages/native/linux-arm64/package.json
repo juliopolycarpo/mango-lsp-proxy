@@ -1,0 +1,23 @@
+{
+  "name": "@mango-lsp/mango-lsp-proxy-linux-arm64",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Native mango-lsp binary for Linux ARM64 glibc.",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "libc": "glibc",
+  "files": [
+    "bin/"
+  ],
+  "scripts": {
+    "prepack": "bun ../../../scripts/build.ts --target linux-arm64"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -8,14 +8,25 @@ on:
       - develop
       - "release/**"
       - "hotfix/**"
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+      - "test/**"
+      - "docs/**"
       - "perf/**"
+      - "refactor/**"
+      - "style/**"
       - "ci/**"
       - "security/**"
       - "dependencies/**"
       - "deps/**"
+      - "claude/**"
+      - "codex/**"
+      - "copilot/**"
   pull_request:
     branches:
       - main
+      - master
       - develop
       - "release/**"
       - "hotfix/**"
@@ -34,7 +45,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

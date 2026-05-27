@@ -1,0 +1,22 @@
+{
+  "name": "@mango-lsp/mango-lsp-proxy-darwin-x64",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Native mango-lsp binary for macOS x64.",
+  "license": "MIT",
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "files": [
+    "bin/"
+  ],
+  "scripts": {
+    "prepack": "bun ../../../scripts/build.ts --target darwin-x64"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

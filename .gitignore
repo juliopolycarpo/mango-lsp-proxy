@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 coverage/
+packages/native/*/bin/
+bin/mango-lsp
+bin/mango-lsp.exe
+*.tgz
 
 # Caches
 .cache/
@@ -18,6 +22,11 @@ coverage/
 # Local state for the mango-lsp product
 .mango-lsp/state/
 mango-lsp.local.toml
+
+# Agent Local State
+.claude/
+.codex/
+.agents/
 
 # Environment files (keep .env.example tracked)
 .env

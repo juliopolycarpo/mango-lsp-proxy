@@ -15,7 +15,3 @@
 ## Notes
 
 <!-- Add migration notes, release notes, or review context if needed. -->
-
-## Commits
-
-<!-- List the commits made in this pull request. -->

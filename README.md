@@ -27,7 +27,9 @@ formatting. `mango-lsp` solves that by:
 The package is installed under one name and the binary is run under another:
 
 ```sh
-bun add -g mango-lsp-proxy
+bun install -g mango-lsp-proxy
+# or
+npm i -g mango-lsp-proxy
 
 mango-lsp init
 mango-lsp doctor
@@ -36,8 +38,33 @@ mango-lsp serve-lsp --stdio
 
 - Install as `mango-lsp-proxy`.
 - Run as `mango-lsp`.
+- The published package installs the matching native binary for the user's OS/CPU/libc.
+- Node or Bun can be used as the installer, but the installed `mango-lsp` command is a native
+  executable and does not need a JavaScript runtime to run.
 - Project config file is `mango-lsp.toml`.
 - Local state and logs live under `.mango-lsp/`.
+
+Installer script options are available for users who do not want npm or Bun. `install.sh` covers
+Linux and macOS; `install.ps1` covers Windows:
+
+```sh
+curl -fsSL https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.sh | sh
+```
+
+```powershell
+iwr https://github.com/juliopolycarpo/mango-lsp-proxy/releases/latest/download/install.ps1 -UseBasicParsing | iex
+```
+
+macOS binaries are not Apple-notarized. Package-manager and `install.sh` installs are not
+quarantined, but a binary downloaded manually through a browser must be cleared with
+`xattr -d com.apple.quarantine ./mango-lsp` before first run.
+
+Windows users will be able to install through `winget` after the generated winget manifests are
+accepted into the community package repository:
+
+```powershell
+winget install JulioPolycarpo.MangoLSP
+```
 
 ## CLI
 
@@ -171,16 +198,129 @@ bun run dev help
 bun test
 bun run check
 bun run fmt
+bun run changelog
+bun run changelog:check
 bun run build
 bun run build:bin
+bun run build:current
+bun run smoke:bin
 ```
 
 Test files use:
 
 - `.unit.test.ts` for unit tests,
 - `.integration.test.ts` for integration tests.
+- `.e2e.test.ts` for end-to-end tests.
+
+## Changelog
+
+The canonical changelog is [`CHANGELOG.md`](./CHANGELOG.md). It is generated with
+[`git-cliff`](https://git-cliff.org/) from conventional commits using [`cliff.toml`](./cliff.toml).
+
+Regenerate it after release-facing changes:
+
+```sh
+bun run changelog
+```
+
+Validate the git-cliff config without rewriting the tracked changelog:
+
+```sh
+bun run changelog:check
+```
 
 There is intentionally **no ESLint**, **no Prettier**, and **no Turborepo** in v0.1.
+
+## Native Releases
+
+`mango-lsp-proxy` publishes one root package and one optional native package per supported target.
+The root package owns the `mango-lsp` bin path. During package installation, its postinstall step
+copies the correct optional native package into that path, so package-manager installs still produce
+a standalone executable:
+
+```text
+@mango-lsp/mango-lsp-proxy-windows-x64
+@mango-lsp/mango-lsp-proxy-windows-arm64
+@mango-lsp/mango-lsp-proxy-linux-x64
+@mango-lsp/mango-lsp-proxy-linux-arm64
+@mango-lsp/mango-lsp-proxy-linux-x64-musl
+@mango-lsp/mango-lsp-proxy-linux-arm64-musl
+@mango-lsp/mango-lsp-proxy-darwin-x64
+@mango-lsp/mango-lsp-proxy-darwin-arm64
+```
+
+Build all release binaries:
+
+```sh
+bun run build
+bun run smoke:bin
+```
+
+Build only the current host binary:
+
+```sh
+bun run build:current
+```
+
+GitHub binary releases are created by pushing a version tag. Tags without a prerelease suffix create
+official releases; tags with a hyphenated suffix create GitHub prereleases.
+
+```sh
+git tag -s 0.1 -m "Release 0.1"
+git push origin 0.1
+
+git tag -s 0.1-pre -m "Release 0.1-pre"
+git push origin 0.1-pre
+```
+
+The release workflow validates the tag, runs checks and tests, builds every native binary target,
+smoke-checks the binaries, generates structured git-cliff release notes, uploads binary release
+assets, uploads SHA-256 checksums, uploads the GitHub commit SHA, uploads standalone installer
+scripts, generates winget manifests, publishes the native npm packages, publishes the root npm
+package, and uses GitHub's built-in source archives for source code.
+
+GitHub tags may use `0.1` or `0.1-pre` form. The npm package version is normalized to semver, so
+those tags publish as `0.1.0` and `0.1.0-pre`. Prereleases publish to the npm `next` dist-tag;
+official releases publish to `latest`. Bun installs from the npm registry, so the same publish step
+supports both `npm install -g mango-lsp-proxy` and `bun install -g mango-lsp-proxy`.
+
+For npm trusted publishing, configure each published package on npmjs.com to trust the
+`.github/workflows/release.yml` workflow for this repository. The workflow uses GitHub Actions OIDC
+and `npm publish --provenance`.
+
+`bun scripts/publish-packages.ts --tag <dist-tag>` performs the publish. It publishes every native
+package first and the root package last, so the metapackage never resolves to native versions that
+are not yet live. Each package is retried up to three times with exponential backoff, and a version
+that npm reports as already published is treated as a skip rather than a failure — so re-running the
+release after a partial publish picks up where it left off instead of erroring on the live packages.
+On failure it logs which packages are already live, which one failed, and which were not attempted,
+so manual recovery is straightforward.
+
+Publish order:
+
+```sh
+bun scripts/publish-packages.ts --tag latest
+# 1. @mango-lsp/mango-lsp-proxy-windows-x64
+# 2. @mango-lsp/mango-lsp-proxy-windows-arm64
+# 3. @mango-lsp/mango-lsp-proxy-linux-x64
+# 4. @mango-lsp/mango-lsp-proxy-linux-arm64
+# 5. @mango-lsp/mango-lsp-proxy-linux-x64-musl
+# 6. @mango-lsp/mango-lsp-proxy-linux-arm64-musl
+# 7. @mango-lsp/mango-lsp-proxy-darwin-x64
+# 8. @mango-lsp/mango-lsp-proxy-darwin-arm64
+# 9. mango-lsp-proxy (root, published last)
+```
+
+Before publishing, run:
+
+```sh
+bun run check
+bun test
+bun run changelog
+bun run build
+bun run smoke:bin
+npm pack --dry-run
+```
 
 ### Editor Integration
 
