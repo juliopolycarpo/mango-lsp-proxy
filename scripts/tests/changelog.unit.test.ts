@@ -123,6 +123,9 @@ describe("changelog execution", () => {
     const assetsPath = join(outDir, "assets.md");
     const outputPath = join(outDir, "release-notes.md");
 
+    const previousChanges = (await Bun.file(changesPath).exists())
+      ? await Bun.file(changesPath).text()
+      : null;
     await mkdir(changesDir, { recursive: true });
     await writeFile(changesPath, "## 0.1\n");
     await writeFile(assetsPath, "## Assets\n");
@@ -142,6 +145,11 @@ describe("changelog execution", () => {
       expect(spawnMock).toHaveBeenCalledTimes(2);
     } finally {
       await rm(outDir, { force: true, recursive: true });
+      if (previousChanges === null) {
+        await rm(changesPath, { force: true });
+      } else {
+        await writeFile(changesPath, previousChanges);
+      }
     }
   });
 });

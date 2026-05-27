@@ -131,7 +131,7 @@ describe("applyReleaseVersion", () => {
     const root = await makeTemp("mango-release-default-log-");
     await seedAll(root, "0.0.0");
 
-    const spy = spyOn(process.stdout, "write");
+    const spy = spyOn(process.stdout, "write").mockImplementation(() => true);
     try {
       await applyReleaseVersion("9.9.9", root, { dryRun: true });
       expect(spy).toHaveBeenCalledTimes(1);
