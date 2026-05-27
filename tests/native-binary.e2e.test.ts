@@ -1,6 +1,6 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import { constants } from "node:fs";
-import { access, mkdtemp } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { buildNativeBinaries } from "../scripts/build";
@@ -11,13 +11,34 @@ const ROOT_DIR = resolve(import.meta.dir, "..");
 const hostTarget = detectHostNativeTarget();
 const hostBinaryTest = hostTarget === undefined ? test.skip : test;
 
+let tempDirs: string[] = [];
+
+async function makeTemp(prefix: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((d) => rm(d, { recursive: true, force: true })));
+  tempDirs = [];
+});
+
+function assertNotPlaceholder(bytes: Uint8Array, path: string): void {
+  if (bytes[0] === 0x6d) {
+    throw new Error(
+      `${path} is the text placeholder — build did not overwrite it with the real binary`,
+    );
+  }
+}
+
 describe("native binary e2e", () => {
   hostBinaryTest(
     "builds a valid runnable binary for the current host",
     async () => {
       if (hostTarget === undefined) throw new Error("host target should be configured");
 
-      const outputRoot = await mkdtemp(join(tmpdir(), "mango-native-e2e-"));
+      const outputRoot = await makeTemp("mango-native-e2e-");
       const outputs = await buildNativeBinaries({
         clean: true,
         outputRoot,
@@ -56,27 +77,19 @@ describe("native binary e2e", () => {
     async () => {
       if (hostTarget === undefined) throw new Error("host target should be configured");
 
-      const outputRoot = await mkdtemp(join(tmpdir(), "mango-native-e2e-"));
+      const outputRoot = await makeTemp("mango-native-e2e-");
       await buildNativeBinaries({
         clean: true,
         outputRoot,
         targetIds: [hostTarget.id],
       });
 
-      // installToBin copies to rootDir/bin/<binaryName>, which defaults to the
-      // project root.  Verify the binary was placed and is not the old text
-      // placeholder (whose first byte is 'm' = 0x6d).
       const binPath = join(ROOT_DIR, "bin", hostTarget.binaryName);
       await access(binPath, constants.R_OK | constants.X_OK);
 
       const bytes = await Bun.file(binPath).bytes();
-      const firstByte = bytes[0];
-      if (firstByte === undefined) throw new Error("bin/mango-lsp is unexpectedly empty");
-      if (firstByte === 0x6d) {
-        throw new Error(
-          "bin/mango-lsp is the text placeholder — build did not overwrite it with the real binary",
-        );
-      }
+      if (bytes.length === 0) throw new Error("bin/mango-lsp is unexpectedly empty");
+      assertNotPlaceholder(bytes, binPath);
     },
     120_000,
   );
