@@ -196,6 +196,7 @@ Common commands:
 bun install
 bun run dev help
 bun test
+bun run test:coverage
 bun run check
 bun run fmt
 bun run changelog
@@ -211,6 +212,17 @@ Test files use:
 - `.unit.test.ts` for unit tests,
 - `.integration.test.ts` for integration tests.
 - `.e2e.test.ts` for end-to-end tests.
+
+Coverage gate:
+
+```sh
+bun run test:coverage
+```
+
+The coverage gate runs `bun test --coverage`, writes `coverage/lcov.info`, and fails if coverage
+drops below the current project floor. The long-term target is 90%+ line and function coverage. When
+a PR raises either metric above the configured floor, raise that floor in `scripts/coverage-gate.ts`
+before merging so the gain is preserved.
 
 ## Changelog
 
@@ -315,7 +327,7 @@ Before publishing, run:
 
 ```sh
 bun run check
-bun test
+bun run test:coverage
 bun run changelog
 bun run build
 bun run smoke:bin

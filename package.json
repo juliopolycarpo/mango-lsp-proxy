@@ -22,6 +22,7 @@
     "dev": "bun apps/cli/src/main.ts",
     "check": "bun scripts/check.ts",
     "test": "bun test",
+    "test:coverage": "bun scripts/coverage-gate.ts",
     "test:unit": "bun scripts/test.ts unit",
     "test:integration": "bun scripts/test.ts integration",
     "test:e2e": "bun scripts/test.ts e2e",
