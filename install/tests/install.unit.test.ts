@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-function parseArgs(
-  args: string[],
-): { version: string; installDir: string } | { error: string } {
+function parseArgs(args: string[]): { version: string; installDir: string } | { error: string } {
   let version = "";
   let installDir = "$HOME/.local/bin";
   let i = 0;
@@ -11,13 +9,15 @@ function parseArgs(
     switch (args[i]) {
       case "--version":
         i++;
-        if (i >= args.length) return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
+        if (i >= args.length)
+          return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
         version = args[i];
         i++;
         break;
       case "--install-dir":
         i++;
-        if (i >= args.length) return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
+        if (i >= args.length)
+          return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
         installDir = args[i];
         i++;
         break;
@@ -179,9 +179,9 @@ describe("install asset name construction", () => {
 
 describe("install PATH profile check", () => {
   function profileHasPath(profile: string, dir: string): boolean {
-    return profile.includes(`"${dir}:`) ||
-      profile.includes(`:${dir}"`) ||
-      profile.includes(`:${dir}:`);
+    return (
+      profile.includes(`"${dir}:`) || profile.includes(`:${dir}"`) || profile.includes(`:${dir}:`)
+    );
   }
 
   test("finds first entry (preceded by quote)", () => {
