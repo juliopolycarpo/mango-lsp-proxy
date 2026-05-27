@@ -121,7 +121,9 @@ case ":$PATH:" in
   *)
     profile="${PROFILE:-$HOME/.profile}"
     touch "$profile"
-    if ! grep -F "$INSTALL_DIR" "$profile" >/dev/null 2>&1; then
+    if ! grep -qF "\"$INSTALL_DIR:" "$profile" >/dev/null 2>&1 && \
+       ! grep -qF ":$INSTALL_DIR\"" "$profile" >/dev/null 2>&1 && \
+       ! grep -qF ":$INSTALL_DIR:" "$profile" >/dev/null 2>&1; then
       printf '\nexport PATH="%s:$PATH"\n' "$INSTALL_DIR" >> "$profile"
     fi
     echo "Added $INSTALL_DIR to PATH in $profile. Open a new shell to use it."

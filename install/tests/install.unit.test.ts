@@ -176,3 +176,41 @@ describe("install asset name construction", () => {
     expect(name).toBe("mango-lsp-0.1.0-windows-x64.exe");
   });
 });
+
+describe("install PATH profile check", () => {
+  function profileHasPath(profile: string, dir: string): boolean {
+    return profile.includes(`"${dir}:`) ||
+      profile.includes(`:${dir}"`) ||
+      profile.includes(`:${dir}:`);
+  }
+
+  test("finds first entry (preceded by quote)", () => {
+    const profile = 'export PATH="/home/user/.local/bin:$PATH"\n';
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(true);
+  });
+
+  test("finds last entry (followed by quote)", () => {
+    const profile = 'export PATH="/other:/home/user/.local/bin"\n';
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(true);
+  });
+
+  test("finds middle entry (surrounded by colons)", () => {
+    const profile = 'export PATH="/a:/home/user/.local/bin:/c"\n';
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(true);
+  });
+
+  test("resists superstring false positive (bin vs bin-extra)", () => {
+    const profile = 'export PATH="/home/user/.local/bin-extra:$PATH"\n';
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(false);
+  });
+
+  test("resists comment mentioning the path", () => {
+    const profile = "# download to /home/user/.local/bin\nexport PATH='/other:$PATH'\n";
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(false);
+  });
+
+  test("resists unrelated assignment using the same directory", () => {
+    const profile = 'INSTALL_DIR="/home/user/.local/bin"\nexport PATH="/other:$PATH"\n';
+    expect(profileHasPath(profile, "/home/user/.local/bin")).toBe(false);
+  });
+});
