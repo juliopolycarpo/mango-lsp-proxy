@@ -194,6 +194,7 @@ Common commands:
 
 ```sh
 bun install
+bun run hooks:install
 bun run dev help
 bun test
 bun run test:coverage
@@ -206,6 +207,10 @@ bun run build:bin
 bun run build:current
 bun run smoke:bin
 ```
+
+Install Git hooks with `bun run hooks:install`. Lefthook runs `bun run check` and `bun test` before
+commits. Before pushes, it runs `bun run check`, `bun run test:coverage`, and `bun run build`, which
+matches the main CI gate.
 
 Test files use:
 

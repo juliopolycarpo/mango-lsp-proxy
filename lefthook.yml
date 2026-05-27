@@ -1,0 +1,15 @@
+pre-commit:
+  jobs:
+    - name: check
+      run: bun run check
+    - name: test
+      run: bun test
+
+pre-push:
+  jobs:
+    - name: check
+      run: bun run check
+    - name: coverage
+      run: bun run test:coverage
+    - name: build
+      run: bun run build
