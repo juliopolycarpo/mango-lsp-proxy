@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { applyReleaseVersion } from "../apply-release-version";
@@ -18,69 +18,106 @@ const PACKAGE_PATHS = [
   ...NATIVE_TARGETS.map((target) => `packages/native/${target.id}/package.json`),
 ];
 
-async function writePackage(rootDir: string, path: string): Promise<void> {
-  const fullPath = join(rootDir, path);
-  await mkdir(dirname(fullPath), { recursive: true });
-  await Bun.write(fullPath, '{"version":"0.0.0"}\n');
+async function makeTempRoot(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "mango-release-"));
 }
 
-describe("release version application", () => {
-  test("updates package manifests and runtime version", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "mango-release-version-"));
-    await Promise.all(PACKAGE_PATHS.map((path) => writePackage(rootDir, path)));
+async function seedPackage(rootDir: string, relativePath: string, extra?: object): Promise<void> {
+  const fullPath = join(rootDir, relativePath);
+  await mkdir(dirname(fullPath), { recursive: true });
+  const content = { version: "0.0.0", ...extra };
+  await writeFile(fullPath, `${JSON.stringify(content, null, 2)}\n`);
+}
 
-    const rootPackage = join(rootDir, "package.json");
-    await Bun.write(
-      rootPackage,
-      JSON.stringify({
-        version: "0.0.0",
-        optionalDependencies: Object.fromEntries(
-          NATIVE_TARGETS.map((target) => [target.packageName, "0.0.0"]),
-        ),
-      }),
-    );
+async function seedSharedVersion(rootDir: string, version: string): Promise<void> {
+  const path = join(rootDir, "packages", "shared", "src", "index.ts");
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `export const MANGO_LSP_VERSION = "${version}" as const;\n`);
+}
 
-    const sharedPath = join(rootDir, "packages", "shared", "src", "index.ts");
-    await mkdir(dirname(sharedPath), { recursive: true });
-    await Bun.write(sharedPath, 'export const MANGO_LSP_VERSION = "0.0.0" as const;\n');
+async function readPackageVersion(rootDir: string, relativePath: string): Promise<string> {
+  const pkg = (await Bun.file(join(rootDir, relativePath)).json()) as { version?: string };
+  return pkg.version ?? "";
+}
 
-    await applyReleaseVersion("1.2.3-pre", rootDir);
+async function readSharedVersion(rootDir: string): Promise<string> {
+  const text = await Bun.file(join(rootDir, "packages", "shared", "src", "index.ts")).text();
+  const match = /export const MANGO_LSP_VERSION = "([^"]+)" as const;/.exec(text);
+  return match?.[1] ?? "";
+}
 
-    const updatedRoot = (await Bun.file(rootPackage).json()) as {
-      version: string;
-      optionalDependencies: Record<string, string>;
-    };
-    expect(updatedRoot.version).toBe("1.2.3-pre");
-    expect(new Set(Object.values(updatedRoot.optionalDependencies))).toEqual(
-      new Set(["1.2.3-pre"]),
-    );
-    expect(await Bun.file(sharedPath).text()).toContain('"1.2.3-pre"');
+describe("applyReleaseVersion", () => {
+  test("bumps every package.json and the runtime constant", async () => {
+    const root = await makeTempRoot();
+    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
+    await seedSharedVersion(root, "0.0.0");
+
+    await applyReleaseVersion("1.2.3", root);
+
+    for (const p of PACKAGE_PATHS) {
+      expect(await readPackageVersion(root, p)).toBe("1.2.3");
+    }
+    expect(await readSharedVersion(root)).toBe("1.2.3");
   });
 
-  test("dryRun logs intent without rewriting files", async () => {
-    const rootDir = await mkdtemp(join(tmpdir(), "mango-release-version-"));
-    await Promise.all(PACKAGE_PATHS.map((path) => writePackage(rootDir, path)));
+  test("does not abort when the new version equals the current one", async () => {
+    const root = await makeTempRoot();
+    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
+    await seedSharedVersion(root, "0.1.0");
 
-    const rootPackage = join(rootDir, "package.json");
-    const sharedPath = join(rootDir, "packages", "shared", "src", "index.ts");
+    await applyReleaseVersion("0.1.0", root);
+
+    expect(await readSharedVersion(root)).toBe("0.1.0");
+  });
+
+  test("rejects when MANGO_LSP_VERSION is missing from shared/src/index.ts", async () => {
+    const root = await makeTempRoot();
+    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
+    const sharedPath = join(root, "packages", "shared", "src", "index.ts");
     await mkdir(dirname(sharedPath), { recursive: true });
-    await Bun.write(sharedPath, 'export const MANGO_LSP_VERSION = "0.0.0" as const;\n');
+    await writeFile(sharedPath, "export const OTHER = 'x';\n");
+
+    await expect(applyReleaseVersion("1.0.0", root)).rejects.toThrow(
+      "MANGO_LSP_VERSION was not found",
+    );
+  });
+
+  test("dryRun logs intent and touches nothing", async () => {
+    const root = await makeTempRoot();
+    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
+    await seedSharedVersion(root, "0.0.0");
 
     const logs: string[] = [];
-    await applyReleaseVersion("9.9.9", rootDir, { dryRun: true, log: (msg) => logs.push(msg) });
+    await applyReleaseVersion("9.9.9", root, { dryRun: true, log: (msg) => logs.push(msg) });
 
-    // Package files untouched
-    const rootJson = (await Bun.file(rootPackage).json()) as { version: string };
-    expect(rootJson.version).toBe("0.0.0");
+    for (const p of PACKAGE_PATHS) {
+      expect(await readPackageVersion(root, p)).toBe("0.0.0");
+    }
+    expect(await readSharedVersion(root)).toBe("0.0.0");
+    expect(logs).toEqual([
+      `[dry-run] would apply version 9.9.9 to ${PACKAGE_PATHS.length} package manifests and runtime version`,
+    ]);
+  });
 
-    // Shared version untouched
-    expect(await Bun.file(sharedPath).text()).toBe(
-      'export const MANGO_LSP_VERSION = "0.0.0" as const;\n',
+  test("updates optionalDependencies for native packages", async () => {
+    const root = await makeTempRoot();
+    await Promise.all(PACKAGE_PATHS.map((p) => seedPackage(root, p)));
+    await seedSharedVersion(root, "0.0.0");
+
+    const rootPackage = join(root, "package.json");
+    const rootPkg = (await Bun.file(rootPackage).json()) as {
+      optionalDependencies?: Record<string, string>;
+    };
+    rootPkg.optionalDependencies = Object.fromEntries(
+      NATIVE_TARGETS.map((t) => [t.packageName, "0.0.0"]),
     );
+    await writeFile(rootPackage, `${JSON.stringify(rootPkg, null, 2)}\n`);
 
-    // Intent was logged
-    expect(logs.length).toBe(1);
-    expect(logs[0]).toContain("9.9.9");
-    expect(logs[0]).toContain("dry-run");
+    await applyReleaseVersion("2.0.0", root);
+
+    const updated = (await Bun.file(rootPackage).json()) as {
+      optionalDependencies: Record<string, string>;
+    };
+    expect(new Set(Object.values(updated.optionalDependencies))).toEqual(new Set(["2.0.0"]));
   });
 });
