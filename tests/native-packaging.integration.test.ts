@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { afterEach, describe, expect, test } from "bun:test";
+import { chmod, mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -11,6 +11,19 @@ import {
 
 const ROOT_DIR = resolve(import.meta.dir, "..");
 const require = createRequire(import.meta.url);
+
+let tempDirs: string[] = [];
+
+async function makeTemp(prefix: string): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(async () => {
+  await Promise.all(tempDirs.map((d) => rm(d, { recursive: true, force: true })));
+  tempDirs = [];
+});
 
 interface PackageJson {
   readonly name?: string;
@@ -122,7 +135,7 @@ describe("postinstall binary copy", () => {
     const target = installer.hostTarget();
     if (target === undefined) throw new Error("host target should be configured");
 
-    const rootDir = await mkdtemp(join(tmpdir(), "mango-install-"));
+    const rootDir = await makeTemp("mango-install-");
     await Bun.write(join(rootDir, "package.json"), "{}\n");
 
     const pkgDir = await createFakeNativePackage(rootDir, target);
@@ -151,10 +164,18 @@ describe("postinstall binary copy", () => {
     const target = installer.hostTarget();
     if (target === undefined) throw new Error("host target should be configured");
 
-    const rootDir = await mkdtemp(join(tmpdir(), "mango-install-"));
+    const rootDir = await makeTemp("mango-install-");
     await Bun.write(join(rootDir, "package.json"), "{}\n");
     await createFakeNativePackage(rootDir, target);
-    // intentionally don't create the binary file
+
+    expect(installer.installNative(rootDir)).toBeUndefined();
+  });
+
+  test("returns undefined when no native package is installed at all", async () => {
+    const installer = require("../scripts/install-native.cjs") as NativeInstaller;
+
+    const rootDir = await makeTemp("mango-install-");
+    await Bun.write(join(rootDir, "package.json"), "{}\n");
 
     expect(installer.installNative(rootDir)).toBeUndefined();
   });
