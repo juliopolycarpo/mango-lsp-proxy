@@ -26,4 +26,4 @@ jobs:
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate
-          allow-dependencies-licenses: 'pkg:githubactions/actions/checkout@*,pkg:githubactions/actions/setup-node@*,pkg:githubactions/oven-sh/setup-bun@*'
+          allow-dependencies-licenses: "pkg:githubactions/actions/checkout@*,pkg:githubactions/actions/setup-node@*,pkg:githubactions/oven-sh/setup-bun@*"
