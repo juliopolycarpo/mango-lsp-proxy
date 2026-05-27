@@ -177,7 +177,12 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
     log("artifacts", "release assets packaged", dryRun);
   }
 
-  if (!options.skipReleaseNotes) {
+  const shouldSkipReleaseNotes = options.skipReleaseNotes || options.skipArtifacts;
+  if (options.skipArtifacts && !options.skipReleaseNotes) {
+    log("release-notes", "skipping (artifacts skipped, no assets file available)", dryRun);
+  }
+
+  if (!shouldSkipReleaseNotes) {
     log("release-notes", "generating release notes", dryRun);
     await runChangelog({
       command: "release-notes",
