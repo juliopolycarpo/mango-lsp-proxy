@@ -45,6 +45,8 @@ export interface PublishPackagesOptions {
   readonly sleep?: (ms: number) => Promise<void>;
   readonly log?: (line: string) => void;
   readonly dryRun?: boolean;
+  /** Enable npm --provenance (default: true when CI env var is set). */
+  readonly provenance?: boolean;
 }
 
 export interface PublishPackagesResult {
@@ -95,11 +97,29 @@ function publishOrder(
   return [...natives, { name: ROOT_PACKAGE_NAME, dir: rootDir }];
 }
 
-async function runNpmPublish(pkg: PublishablePackage, tag: string): Promise<PublishStatus> {
-  const proc = Bun.spawn(
-    ["npm", "publish", pkg.dir, "--access", "public", "--tag", tag, "--provenance"],
-    { stdout: "inherit", stderr: "pipe" },
-  );
+/** Build the npm publish command, adding --provenance only when requested. */
+export function buildNpmPublishArgs(
+  pkg: PublishablePackage,
+  tag: string,
+  provenance: boolean,
+): string[] {
+  const args = ["npm", "publish", pkg.dir, "--access", "public", "--tag", tag];
+  if (provenance) args.push("--provenance");
+  return args;
+}
+
+/** Default CI detection used when the caller does not explicitly set `provenance`. */
+export function detectCi(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.CI === "true";
+}
+
+async function runNpmPublish(
+  pkg: PublishablePackage,
+  tag: string,
+  provenance: boolean,
+): Promise<PublishStatus> {
+  const args = buildNpmPublishArgs(pkg, tag, provenance);
+  const proc = Bun.spawn(args, { stdout: "inherit", stderr: "pipe" });
   const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
   process.stderr.write(stderr);
 
@@ -178,10 +198,11 @@ export async function publishPackages(
     log("[dry-run] skipping npm publish for all packages");
   }
 
+  const useProvenance = options.provenance ?? detectCi();
   const deps: PublishDeps = {
     publish: options.dryRun
       ? (pkg) => dryRunPublish(pkg, log)
-      : (options.publish ?? ((pkg) => runNpmPublish(pkg, options.npmTag))),
+      : (options.publish ?? ((pkg) => runNpmPublish(pkg, options.npmTag, useProvenance))),
     sleep: options.sleep ?? sleep,
     log,
   };
@@ -222,6 +243,7 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
   let attempts: number | undefined;
   let backoffMs: number | undefined;
   let dryRun = false;
+  let provenance: boolean | undefined;
   const targetIds: NativeTargetId[] = [];
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -244,6 +266,12 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
       case "--dry-run":
         dryRun = true;
         break;
+      case "--provenance":
+        provenance = true;
+        break;
+      case "--no-provenance":
+        provenance = false;
+        break;
       case "--target": {
         const target = next === undefined ? undefined : getNativeTarget(next);
         if (target === undefined) throw new Error(`unknown native target: ${next}`);
@@ -257,10 +285,13 @@ function cliOptions(argv: readonly string[]): PublishPackagesOptions {
   }
 
   if (npmTag === undefined)
-    throw new Error("usage: bun scripts/publish-packages.ts --tag <npm-tag> [--dry-run]");
+    throw new Error(
+      "usage: bun scripts/publish-packages.ts --tag <npm-tag> [--dry-run] [--provenance | --no-provenance]",
+    );
   return {
     npmTag,
     dryRun,
+    ...(provenance === undefined ? {} : { provenance }),
     ...(attempts === undefined ? {} : { attempts }),
     ...(backoffMs === undefined ? {} : { backoffMs }),
     ...(targetIds.length === 0 ? {} : { targetIds }),
