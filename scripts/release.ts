@@ -3,9 +3,9 @@ import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { applyReleaseVersion } from "./apply-release-version";
 import { buildNativeBinaries } from "./build";
-import { runChangelog } from "./changelog";
+import { type ChangelogOptions, runChangelog } from "./changelog";
 import { publishPackages } from "./publish-packages";
-import { writeReleaseArtifacts } from "./release-artifacts";
+import { type ReleaseArtifactOptions, writeReleaseArtifacts } from "./release-artifacts";
 import { parseReleaseTag } from "./release-version";
 import { smokeNativeBinaries } from "./smoke-native";
 
@@ -28,6 +28,10 @@ export interface ReleaseOptions {
     rootDir: string,
     options: { dryRun: boolean },
   ) => Promise<void>;
+  /** Optional override for changelog generation, used in tests. */
+  readonly runChangelogFn?: (options: ChangelogOptions) => Promise<void>;
+  /** Optional override for release artifacts creation, used in tests. */
+  readonly writeReleaseArtifactsFn?: (options: ReleaseArtifactOptions) => Promise<void>;
 }
 
 function log(step: string, message: string, dryRun: boolean): void {
@@ -140,6 +144,8 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
 
   log("version", "applying version to package manifests", dryRun);
   const applyVersion = options.applyVersion ?? applyReleaseVersion;
+  const runChangelogFn = options.runChangelogFn ?? runChangelog;
+  const writeReleaseArtifactsFn = options.writeReleaseArtifactsFn ?? writeReleaseArtifacts;
   await applyVersion(version.packageVersion, ROOT_DIR, { dryRun });
 
   if (!options.skipCheck) {
@@ -168,7 +174,7 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
 
   if (!options.skipArtifacts) {
     log("artifacts", "packaging release assets", dryRun);
-    await writeReleaseArtifacts({
+    await writeReleaseArtifactsFn({
       displayVersion: version.displayVersion,
       packageVersion: version.packageVersion,
       tag,
@@ -184,7 +190,7 @@ export async function runRelease(options: ReleaseOptions): Promise<void> {
 
   if (!shouldSkipReleaseNotes) {
     log("release-notes", "generating release notes", dryRun);
-    await runChangelog({
+    await runChangelogFn({
       command: "release-notes",
       tag,
       outputPath: "dist/release/release-notes.md",
