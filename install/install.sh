@@ -9,8 +9,13 @@ TAG="${MANGO_LSP_TAG:-}"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --version)
-      VERSION="$2"
-      shift 2
+      shift
+      if [ "$#" -eq 0 ]; then
+        echo "usage: install.sh [--version <version>] [--install-dir <dir>]" >&2
+        exit 2
+      fi
+      VERSION="$1"
+      shift
       ;;
     --install-dir)
       INSTALL_DIR="$2"

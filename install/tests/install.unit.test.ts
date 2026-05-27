@@ -1,5 +1,36 @@
 import { describe, expect, test } from "bun:test";
 
+function parseArgs(
+  args: string[],
+): { version: string; installDir: string } | { error: string } {
+  let version = "";
+  let installDir = "$HOME/.local/bin";
+  let i = 0;
+
+  while (i < args.length) {
+    switch (args[i]) {
+      case "--version":
+        i++;
+        if (i >= args.length) return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
+        version = args[i];
+        i++;
+        break;
+      case "--install-dir":
+        i++;
+        if (i >= args.length) return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
+        installDir = args[i];
+        i++;
+        break;
+      default:
+        return { error: "usage: install.sh [--version <version>] [--install-dir <dir>]" };
+    }
+  }
+
+  version = version.replace(/^v/, "");
+
+  return { version, installDir };
+}
+
 function resolveVersionAndTag(
   supplied: { version: string; tag: string },
   latestTag: string,
@@ -25,6 +56,51 @@ function resolveVersionAndTag(
 function assetName(version: string, target: string, ext: string): string {
   return `mango-lsp-${version}-${target}.${ext}`;
 }
+
+describe("install argument parsing", () => {
+  test("--version with a value parses", () => {
+    const result = parseArgs(["--version", "0.2.0"]);
+    expect(result).toEqual({ version: "0.2.0", installDir: "$HOME/.local/bin" });
+  });
+
+  test("strips leading v from --version value", () => {
+    const result = parseArgs(["--version", "v0.2.0"]);
+    expect(result).toEqual({ version: "0.2.0", installDir: "$HOME/.local/bin" });
+  });
+
+  test("--version with no value returns error instead of crashing", () => {
+    const result = parseArgs(["--version"]);
+    expect(result).toEqual({
+      error: "usage: install.sh [--version <version>] [--install-dir <dir>]",
+    });
+  });
+
+  test("--version at end of args with no value returns error", () => {
+    const result = parseArgs(["--install-dir", "/tmp/bin", "--version"]);
+    expect(result).toEqual({
+      error: "usage: install.sh [--version <version>] [--install-dir <dir>]",
+    });
+  });
+
+  test("--install-dir with no value returns error", () => {
+    const result = parseArgs(["--install-dir"]);
+    expect(result).toEqual({
+      error: "usage: install.sh [--version <version>] [--install-dir <dir>]",
+    });
+  });
+
+  test("unknown flag returns error", () => {
+    const result = parseArgs(["--help"]);
+    expect(result).toEqual({
+      error: "usage: install.sh [--version <version>] [--install-dir <dir>]",
+    });
+  });
+
+  test("no args uses defaults", () => {
+    const result = parseArgs([]);
+    expect(result).toEqual({ version: "", installDir: "$HOME/.local/bin" });
+  });
+});
 
 describe("install version/tag normalization", () => {
   const LATEST = "v1.0.0";
