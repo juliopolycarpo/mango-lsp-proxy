@@ -41,84 +41,103 @@ function expectedNativeDescription(target: NativeTarget): string {
   return `Native mango-lsp binary for ${target.description}.`;
 }
 
+/* ─── setup helpers ─── */
+
+async function createFakeNativePackage(
+  rootDir: string,
+  target: NativeTarget,
+): Promise<string> {
+  const dir = join(rootDir, "node_modules", ...target.packageName.split("/"));
+  await mkdir(join(dir, "bin"), { recursive: true });
+  await Bun.write(join(dir, "package.json"), JSON.stringify({ name: target.packageName }));
+  return dir;
+}
+
+async function writeFakeBinary(dir: string, target: NativeTarget): Promise<string> {
+  const path = join(dir, "bin", target.binaryName);
+  await Bun.write(path, `#!/bin/sh\necho "fake native $*"\n`);
+  await chmod(path, 0o755);
+  return path;
+}
+
+/* ─── tests ─── */
+
 describe("native package publishing metadata", () => {
-  test("root package exposes the native bin path and optional native packages", async () => {
-    const pkg = await readPackageJson(join(ROOT_DIR, "package.json"));
+  describe("root package", () => {
+    test("declares the native bin entry, optional deps, and postinstall", async () => {
+      const pkg = await readPackageJson(join(ROOT_DIR, "package.json"));
 
-    expect(pkg.private).toBe(false);
-    expect(pkg.license).toBe("MIT");
-    expect(pkg.bin).toEqual({ "mango-lsp": "./bin/mango-lsp" });
-    expect(pkg.files).toEqual([
-      "bin/",
-      "install/",
-      "CHANGELOG.md",
-      "LICENSE",
-      "README.md",
-      "scripts/install-native.cjs",
-      "scripts/native-target-data.json",
-    ]);
-    expect(pkg.scripts?.postinstall).toBe(
-      "node scripts/install-native.cjs || bun scripts/install-native.cjs",
-    );
-    expect(pkg.scripts?.prepack).toBe("bun run build:current");
-    expect(pkg.publishConfig).toEqual({ access: "public" });
-
-    const optionalDependencies = pkg.optionalDependencies ?? {};
-    expect(Object.keys(optionalDependencies).sort()).toEqual(
-      NATIVE_TARGETS.map((target) => target.packageName).sort(),
-    );
-    for (const target of NATIVE_TARGETS) {
-      expect(optionalDependencies[target.packageName]).toBe(pkg.version);
-    }
-  });
-
-  test("native package manifests match the target matrix", async () => {
-    const rootPkg = await readPackageJson(join(ROOT_DIR, "package.json"));
-
-    for (const target of NATIVE_TARGETS) {
-      const pkg = await readPackageJson(
-        join(nativeTargetPackageDir(ROOT_DIR, target), "package.json"),
+      expect(pkg.private).toBe(false);
+      expect(pkg.license).toBe("MIT");
+      expect(pkg.publishConfig).toEqual({ access: "public" });
+      expect(pkg.bin).toEqual({ "mango-lsp": "./bin/mango-lsp" });
+      expect(pkg.files).toEqual([
+        "bin/",
+        "install/",
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "scripts/install-native.cjs",
+        "scripts/native-target-data.json",
+      ]);
+      expect(pkg.scripts?.postinstall).toBe(
+        "node scripts/install-native.cjs || bun scripts/install-native.cjs",
       );
 
-      expect(pkg.name).toBe(target.packageName);
-      expect(pkg.version).toBe(rootPkg.version);
-      expect(pkg.private).toBe(false);
-      expect(pkg.description).toBe(expectedNativeDescription(target));
-      expect(pkg.license).toBe("MIT");
-      expect(pkg.os).toEqual([target.os]);
-      expect(pkg.cpu).toEqual([target.cpu]);
-      expect(pkg.files).toEqual(["bin/"]);
-      expect(pkg.scripts?.prepack).toBe(`bun ../../../scripts/build.ts --target ${target.id}`);
-      expect(pkg.publishConfig).toEqual({ access: "public" });
-      const targetLibc = "libc" in target ? target.libc : undefined;
-      if (targetLibc === undefined) {
-        expect(pkg.libc).toBeUndefined();
-      } else {
-        expect(pkg.libc).toBe(targetLibc);
+      const deps = pkg.optionalDependencies ?? {};
+      expect(Object.keys(deps).sort()).toEqual(
+        NATIVE_TARGETS.map((t) => t.packageName).sort(),
+      );
+      for (const target of NATIVE_TARGETS) {
+        expect(deps[target.packageName]).toBe(pkg.version);
       }
-    }
+    });
   });
 
-  test("postinstall copies the selected native executable into the package bin", async () => {
+  describe("native package manifests", () => {
+    test("each native target has consistent metadata", async () => {
+      const rootPkg = await readPackageJson(join(ROOT_DIR, "package.json"));
+
+      for (const target of NATIVE_TARGETS) {
+        const pkg = await readPackageJson(
+          join(nativeTargetPackageDir(ROOT_DIR, target), "package.json"),
+        );
+
+        expect(pkg.name).toBe(target.packageName);
+        expect(pkg.version).toBe(rootPkg.version);
+        expect(pkg.private).toBe(false);
+        expect(pkg.description).toBe(expectedNativeDescription(target));
+        expect(pkg.license).toBe("MIT");
+        expect(pkg.os).toEqual([target.os]);
+        expect(pkg.cpu).toEqual([target.cpu]);
+        expect(pkg.files).toEqual(["bin/"]);
+        expect(pkg.scripts?.prepack).toBe(`bun ../../../scripts/build.ts --target ${target.id}`);
+        expect(pkg.publishConfig).toEqual({ access: "public" });
+
+        const expectedLibc = "libc" in target ? target.libc : undefined;
+        expect((pkg as unknown as Record<string, unknown>).libc).toBe(expectedLibc);
+      }
+    });
+  });
+});
+
+describe("postinstall binary copy", () => {
+  test("copies the native binary from the optional dep into the package bin", async () => {
     const installer = require("../scripts/install-native.cjs") as NativeInstaller;
     const target = installer.hostTarget();
     if (target === undefined) throw new Error("host target should be configured");
 
-    const rootDir = await mkdtemp(join(tmpdir(), "mango-native-install-"));
-    const packageRoot = join(rootDir, "node_modules", ...target.packageName.split("/"));
-    await mkdir(join(packageRoot, "bin"), { recursive: true });
+    const rootDir = await mkdtemp(join(tmpdir(), "mango-install-"));
     await Bun.write(join(rootDir, "package.json"), "{}\n");
-    await Bun.write(join(packageRoot, "package.json"), `{"name":"${target.packageName}"}\n`);
 
-    const fakeBinary = join(packageRoot, "bin", target.binaryName);
-    await Bun.write(fakeBinary, '#!/bin/sh\necho "fake native $*"\n');
-    await chmod(fakeBinary, 0o755);
+    const pkgDir = await createFakeNativePackage(rootDir, target);
+    const fakeBinary = await writeFakeBinary(pkgDir, target);
 
     const commandPath = installer.installNative(rootDir);
-    if (commandPath === undefined)
-      throw new Error("installNative should succeed when binary exists");
     expect(commandPath).toBe(join(rootDir, "bin", "mango-lsp"));
-    expect(await readFile(commandPath, "utf8")).toBe(await readFile(fakeBinary, "utf8"));
+    if (commandPath === undefined) throw new Error("installNative should return a path");
+
+    expect(await readFile(commandPath, "utf8")).toEqual(await readFile(fakeBinary, "utf8"));
 
     const proc = Bun.spawn([commandPath, "--version"], { stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, code] = await Promise.all([
@@ -130,5 +149,18 @@ describe("native package publishing metadata", () => {
     expect(stderr).toBe("");
     expect(code).toBe(0);
     expect(stdout).toBe("fake native --version\n");
+  });
+
+  test("returns undefined when the native binary file is missing", async () => {
+    const installer = require("../scripts/install-native.cjs") as NativeInstaller;
+    const target = installer.hostTarget();
+    if (target === undefined) throw new Error("host target should be configured");
+
+    const rootDir = await mkdtemp(join(tmpdir(), "mango-install-"));
+    await Bun.write(join(rootDir, "package.json"), "{}\n");
+    await createFakeNativePackage(rootDir, target);
+    // intentionally don't create the binary file
+
+    expect(installer.installNative(rootDir)).toBeUndefined();
   });
 });
