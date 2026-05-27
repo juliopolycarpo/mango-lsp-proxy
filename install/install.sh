@@ -78,12 +78,18 @@ case "$(uname -s)" in
     ;;
 esac
 
+VERSION="${VERSION#v}"
+
 if [ -z "$TAG" ]; then
   if [ -z "$VERSION" ]; then
     TAG="$(latest_tag)"
     VERSION="${TAG#v}"
   else
-    TAG="$VERSION"
+    TAG="v$VERSION"
+  fi
+else
+  if [ -z "$VERSION" ]; then
+    VERSION="${TAG#v}"
   fi
 fi
 
