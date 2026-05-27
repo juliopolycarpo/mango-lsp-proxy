@@ -25,8 +25,8 @@ export interface CoverageRun {
 
 const ROOT_DIR = resolve(import.meta.dir, "..");
 const DEFAULT_THRESHOLDS: CoverageThresholds = {
-  functions: 90,
-  lines: 75,
+  functions: 94,
+  lines: 90,
   target: 90,
 };
 
@@ -100,7 +100,12 @@ async function runCoverage(): Promise<CoverageRun> {
   return { code, output: stdout + stderr };
 }
 
-async function streamTo(
+/** Copy a ReadableStream into a WriteStream while collecting text.
+ *
+ * @example
+ * const text = await streamTo(process.stdout, readable)
+ */
+export async function streamTo(
   target: NodeJS.WriteStream,
   stream: ReadableStream<Uint8Array>,
 ): Promise<string> {

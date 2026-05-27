@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { MangoProxy, RoutePlan } from "@mango-lsp/core";
 import type { LspClient } from "@mango-lsp/lsp-client";
-import { createLspServerAdapter, type LspTransport } from "@mango-lsp/lsp-server";
+import {
+  createLspServerAdapter,
+  createStdioTransport,
+  type LspTransport,
+} from "@mango-lsp/lsp-server";
 import {
   type ByteBuffer,
   ErrorCodes,
@@ -191,5 +195,18 @@ describe("@mango-lsp/lsp-server", () => {
     expect(response && "error" in response ? response.error.code : undefined).toBe(
       ErrorCodes.InvalidRequest,
     );
+  });
+
+  test("creates a stdio transport with stdin stream, write, and close", () => {
+    const t = createStdioTransport();
+    expect(t.write).toBeFunction();
+    expect(t.close).toBeFunction();
+    expect(t.input).toBeInstanceOf(ReadableStream);
+  });
+
+  test("stdio transport write and close do not throw", async () => {
+    const t = createStdioTransport();
+    await expect(t.write(new Uint8Array([1, 2, 3]))).resolves.toBeUndefined();
+    await expect(t.close?.()).resolves.toBeUndefined();
   });
 });

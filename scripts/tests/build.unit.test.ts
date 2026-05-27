@@ -33,4 +33,13 @@ describe("native build CLI options", () => {
     expect(help()).toContain("linux-x64-musl");
     expect(help()).toContain("windows-arm64");
   });
+
+  test("parses --current flag for host native target", () => {
+    const opts = cliOptions(["--current"]);
+    expect(opts).not.toBe("help");
+    expect(opts).not.toBe("list");
+    if (typeof opts !== "string") {
+      expect(opts.targetIds).toContain("linux-x64");
+    }
+  });
 });

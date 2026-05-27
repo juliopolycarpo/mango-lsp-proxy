@@ -499,4 +499,75 @@ describe("@mango-lsp/core routing", () => {
 
     await proxy.stop();
   });
+
+  test("restores mango-tagged command from codeAction/resolve with nested command", async () => {
+    const alpha = new FakeClient("alpha", {
+      "codeAction/resolve": (req: JsonRpcRequest) =>
+        successResponse(req.id, {
+          title: "resolved",
+          command: {
+            title: "Apply",
+            command: "alpha.apply",
+            arguments: [2],
+          },
+        }),
+    });
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", new FakeClient("beta", {})],
+      ]),
+    );
+
+    const response = await proxy.handleRequest(
+      request(1, "codeAction/resolve", {
+        title: "resolve me",
+        data: metadata("alpha"),
+        command: {
+          title: "Apply",
+          command: MANGO_LSP_EXECUTE_COMMAND,
+          arguments: [commandMetadata("alpha", "alpha.apply"), 1],
+        },
+      }),
+    );
+
+    expect(alpha.requests.at(-1)?.params).toMatchObject({
+      command: { command: "alpha.apply", arguments: [1] },
+    });
+    expect(response).toMatchObject({
+      result: {
+        command: { command: MANGO_LSP_EXECUTE_COMMAND },
+      },
+    });
+  });
+
+  test("restoreCommand does not modify non-mango commands", async () => {
+    const alpha = new FakeClient("alpha", {
+      "codeAction/resolve": (req: JsonRpcRequest) => successResponse(req.id, { title: "resolved" }),
+    });
+    const proxy = proxyForClients(
+      config(),
+      new Map<ServerId, FakeClient>([
+        ["alpha", alpha],
+        ["beta", new FakeClient("beta", {})],
+      ]),
+    );
+
+    await proxy.handleRequest(
+      request(1, "codeAction/resolve", {
+        title: "resolve me",
+        data: metadata("alpha"),
+        command: {
+          title: "Apply",
+          command: "some.other.command",
+          arguments: ["no-mango-key"],
+        },
+      }),
+    );
+
+    expect(alpha.requests.at(-1)?.params).toMatchObject({
+      command: { command: "some.other.command", arguments: ["no-mango-key"] },
+    });
+  });
 });

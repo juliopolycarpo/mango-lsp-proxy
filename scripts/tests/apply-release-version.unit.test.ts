@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -125,6 +125,19 @@ describe("applyReleaseVersion", () => {
     expect(logs).toEqual([
       `[dry-run] would apply version 9.9.9 to ${PACKAGE_PATHS.length} package manifests and runtime version`,
     ]);
+  });
+
+  test("dryRun without custom log uses the default stdout logger", async () => {
+    const root = await makeTemp("mango-release-default-log-");
+    await seedAll(root, "0.0.0");
+
+    const spy = spyOn(process.stdout, "write");
+    try {
+      await applyReleaseVersion("9.9.9", root, { dryRun: true });
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   test("updates optionalDependencies for native packages", async () => {

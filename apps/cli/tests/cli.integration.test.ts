@@ -191,6 +191,22 @@ roles = ["hover"]
     expect(io.error()).toContain("requires --stdio");
   });
 
+  test("serve-lsp fails when proxy cannot start child servers", async () => {
+    const cwd = await tempProject("mango-cli-serve-lsp-start-");
+    await writeConfig(
+      cwd,
+      `
+[servers.missing]
+command = "mango-lsp-missing-fixture"
+args = []
+roles = ["hover"]
+`,
+    );
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["serve-lsp", "--stdio"], io)).resolves.toBe(1);
+  });
+
   test("self-test fails fast when child binaries are missing", async () => {
     const cwd = await tempProject("mango-cli-test-missing-");
     await writeConfig(
@@ -226,5 +242,49 @@ roles = ["hover"]
 
     await expect(main(["test"], io)).resolves.toBe(0);
     expect(io.output()).toContain("self-test passed");
+  });
+
+  test("serve-lsp shows config error when mango-lsp.toml is missing", async () => {
+    const cwd = await tempProject("mango-cli-serve-error-");
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["serve-lsp", "--stdio"], io)).resolves.toBe(1);
+    expect(io.error()).toContain("could not find mango-lsp.toml");
+  });
+
+  test("serve-lsp shows config error with invalid toml", async () => {
+    const cwd = await tempProject("mango-cli-serve-bad-config-");
+    await Bun.write(join(cwd, "mango-lsp.toml"), "not = toml [[[");
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["serve-lsp", "--stdio"], io)).resolves.toBe(1);
+    expect(io.error()).toContain("TOML");
+  });
+
+  test("doctor shows config error in json mode when config is missing", async () => {
+    const cwd = await tempProject("mango-cli-doctor-config-err-");
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["doctor", "--json"], io)).resolves.toBe(1);
+    expect(io.error()).toContain("could not find mango-lsp.toml");
+  });
+
+  test("logs falls back to raw output for unparseable JSON lines", async () => {
+    const cwd = await tempProject("mango-cli-logs-fallback-");
+    const logDir = join(cwd, ".mango-lsp", "logs");
+    await mkdir(logDir, { recursive: true });
+    await Bun.write(join(logDir, "test.jsonl"), "not-json-at-all\n");
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["logs"], io)).resolves.toBe(0);
+    expect(io.output()).toContain("not-json-at-all");
+  });
+
+  test("test command shows config error when no config is present", async () => {
+    const cwd = await tempProject("mango-cli-test-no-config-");
+    const io = new FakeCliIo(cwd);
+
+    await expect(main(["test"], io)).resolves.toBe(1);
+    expect(io.error()).toContain("could not find mango-lsp.toml");
   });
 });
