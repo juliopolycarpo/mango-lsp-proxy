@@ -2,11 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { NATIVE_TARGETS } from "../native-targets";
 import {
   buildNpmPublishArgs,
+  cliOptions,
   detectCi,
   isAlreadyPublished,
   type PublishablePackage,
   type PublishPackagesOptions,
   type PublishStatus,
+  parsePositiveInt,
   publishPackages,
 } from "../publish-packages";
 
@@ -94,6 +96,40 @@ describe("isAlreadyPublished", () => {
   test("ignores unrelated failures", () => {
     expect(isAlreadyPublished("npm error network ETIMEDOUT")).toBe(false);
     expect(isAlreadyPublished("")).toBe(false);
+  });
+});
+
+describe("publish CLI options", () => {
+  test("parses retry, provenance, dry-run, and target flags", () => {
+    expect(parsePositiveInt("--attempts", "3")).toBe(3);
+    expect(cliOptions(["--tag", "next", "--attempts", "2", "--backoff-ms", "10"])).toEqual({
+      npmTag: "next",
+      dryRun: false,
+      attempts: 2,
+      backoffMs: 10,
+    });
+    expect(cliOptions(["--tag", "latest", "--dry-run", "--no-provenance"])).toEqual({
+      npmTag: "latest",
+      dryRun: true,
+      provenance: false,
+    });
+    expect(cliOptions(["--tag", "latest", "--target", "linux-x64", "--provenance"])).toEqual({
+      npmTag: "latest",
+      dryRun: false,
+      provenance: true,
+      targetIds: ["linux-x64"],
+    });
+  });
+
+  test("rejects missing or invalid publish flags", () => {
+    expect(() => parsePositiveInt("--attempts", undefined)).toThrow("--attempts requires a value");
+    expect(() => parsePositiveInt("--attempts", "0")).toThrow("positive integer");
+    expect(() => cliOptions([])).toThrow("usage: bun scripts/publish-packages.ts");
+    expect(() => cliOptions(["--tag"])).toThrow("--tag requires a value");
+    expect(() => cliOptions(["--tag", "latest", "--target", "missing"])).toThrow(
+      "unknown native target",
+    );
+    expect(() => cliOptions(["--tag", "latest", "--wat"])).toThrow("unknown option");
   });
 });
 

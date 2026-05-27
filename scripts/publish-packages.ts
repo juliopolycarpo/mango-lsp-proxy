@@ -230,7 +230,12 @@ export async function publishPackages(
   return { published };
 }
 
-function parsePositiveInt(flag: string, value: string | undefined): number {
+/** Parse a positive integer CLI option value.
+ *
+ * @example
+ * parsePositiveInt("--attempts", "3") === 3
+ */
+export function parsePositiveInt(flag: string, value: string | undefined): number {
   if (value === undefined) throw new Error(`${flag} requires a value`);
   const parsed = Number.parseInt(value, 10);
   if (!Number.isInteger(parsed) || parsed < 1)
@@ -238,7 +243,12 @@ function parsePositiveInt(flag: string, value: string | undefined): number {
   return parsed;
 }
 
-function cliOptions(argv: readonly string[]): PublishPackagesOptions {
+/** Parse npm publishing CLI flags into publish options.
+ *
+ * @example
+ * cliOptions(["--tag", "latest", "--dry-run"]).dryRun
+ */
+export function cliOptions(argv: readonly string[]): PublishPackagesOptions {
   let npmTag: string | undefined;
   let attempts: number | undefined;
   let backoffMs: number | undefined;

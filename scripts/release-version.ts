@@ -40,7 +40,12 @@ function outputValue(name: string, value: string | boolean): string {
   return `${name}=${value}\n`;
 }
 
-function githubOutput(version: ReleaseVersion): string {
+/** Format release version values for the GitHub Actions output file.
+ *
+ * @example
+ * githubOutput(parseReleaseTag("0.1-pre")).includes("npm_tag=next")
+ */
+export function githubOutput(version: ReleaseVersion): string {
   return [
     outputValue("display_version", version.displayVersion),
     outputValue("package_version", version.packageVersion),

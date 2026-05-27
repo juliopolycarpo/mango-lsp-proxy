@@ -8,6 +8,7 @@ This file provides guidance to coding agents when working with code in this repo
 bun install           # install dependencies
 bun run dev help      # run the CLI without building (entry: apps/cli/src/main.ts)
 bun test              # run all tests
+bun run test:coverage # run all tests with the coverage gate and LCOV report
 bun run test:unit                  # unit tests only
 bun run test:integration           # integration tests only
 bun run test:e2e                   # e2e tests only

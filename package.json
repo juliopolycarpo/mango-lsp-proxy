@@ -21,7 +21,9 @@
   "scripts": {
     "dev": "bun apps/cli/src/main.ts",
     "check": "bun scripts/check.ts",
+    "hooks:install": "lefthook install",
     "test": "bun test",
+    "test:coverage": "bun scripts/coverage-gate.ts",
     "test:unit": "bun scripts/test.ts unit",
     "test:integration": "bun scripts/test.ts integration",
     "test:e2e": "bun scripts/test.ts e2e",
@@ -71,6 +73,7 @@
     "@typescript/native-preview": "^7.0.0-dev.20260525.1",
     "dprint": "^0.54.0",
     "git-cliff": "^2.13.1",
+    "lefthook": "^2.1.8",
     "typescript": "^5.6.0"
   }
 }

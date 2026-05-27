@@ -9,7 +9,7 @@
 ## Testing
 
 - [ ] `bun run check`
-- [ ] `bun test`
+- [ ] `bun run test:coverage`
 - [ ] Not run, reason:
 
 ## Notes
