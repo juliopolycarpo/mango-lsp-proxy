@@ -45,11 +45,12 @@ async function updatePackage(path: string, version: string): Promise<void> {
 async function updateSharedVersion(rootDir: string, version: string): Promise<void> {
   const path = join(rootDir, "packages", "shared", "src", "index.ts");
   const source = await readFile(path, "utf8");
+  const pattern = /export const MANGO_LSP_VERSION = "[^"]+" as const;/;
+  if (!pattern.test(source)) throw new Error("MANGO_LSP_VERSION was not found");
   const updated = source.replace(
-    /export const MANGO_LSP_VERSION = "([^"]+)" as const;/,
+    pattern,
     `export const MANGO_LSP_VERSION = "${version}" as const;`,
   );
-  if (source === updated) throw new Error("MANGO_LSP_VERSION was not found");
   await writeFile(path, updated);
 }
 
